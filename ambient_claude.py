@@ -39,6 +39,7 @@ async def fetch_weather_data():
                 logger.info("Latest weather data:")
                 for key, value in data[0].items():
                     logger.info(f"  {key}: {value}")
+                logger.info(f"Json: {data}")
             else:
                 logger.warning(f"No data available for device {device['macAddress']}")
             

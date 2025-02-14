@@ -1,0 +1,3 @@
+aioambient
+httpx
+python-dotenv
