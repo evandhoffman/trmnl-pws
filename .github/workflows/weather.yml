@@ -28,4 +28,4 @@ jobs:
       env:
         AMBIENT_API_KEY: ${{ secrets.AMBIENT_API_KEY }}
         AMBIENT_APPLICATION_KEY: ${{ secrets.AMBIENT_APPLICATION_KEY }}
-      run: python weather_fetch.py
+      run: python ambient_claude_trmnl.py
