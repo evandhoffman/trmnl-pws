@@ -29,4 +29,5 @@ jobs:
         AMBIENT_API_KEY: ${{ secrets.AMBIENT_API_KEY }}
         AMBIENT_APPLICATION_KEY: ${{ secrets.AMBIENT_APPLICATION_KEY }}
         TIMEZONE: ${{ secrets.TIMEZONE }}
+        WEBHOOK_ID: ${{ secrets.WEBHOOK_ID }}
       run: python ambient_claude_trmnl.py

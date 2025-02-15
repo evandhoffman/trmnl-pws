@@ -18,8 +18,12 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Constants
-WEBHOOK_URL = "https://usetrmnl.com/api/custom_plugins/e2037c24-42ad-4726-b810-9ef9ddb24e81"
-TIMEZONE = os.getenv('TIMEZONE', 'America/New_York')  # Default to Eastern Time if not specified
+WEBHOOK_ID = os.getenv('WEBHOOK_ID')
+WEBHOOK_URL = f"https://usetrmnl.com/api/custom_plugins/{WEBHOOK_ID}"
+TIMEZONE = os.getenv('TIMEZONE', 'America/New_York')
+
+if not WEBHOOK_ID:
+    raise ValueError("Missing WEBHOOK_ID environment variable")  # Default to Eastern Time if not specified
 
 def format_date(epoch_ms: int) -> str:
     """Convert epoch timestamp to pretty date format in local timezone"""
