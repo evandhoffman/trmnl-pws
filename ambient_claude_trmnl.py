@@ -4,6 +4,8 @@ from aioambient.api import API
 import httpx
 import os
 from dotenv import load_dotenv
+from datetime import datetime
+import pytz
 
 # Load environment variables
 load_dotenv()
@@ -17,12 +19,32 @@ logger = logging.getLogger(__name__)
 
 # Constants
 WEBHOOK_URL = "https://usetrmnl.com/api/custom_plugins/e2037c24-42ad-4726-b810-9ef9ddb24e81"
+TIMEZONE = os.getenv('TIMEZONE', 'America/New_York')  # Default to Eastern Time if not specified
+
+def format_date(epoch_ms: int) -> str:
+    """Convert epoch timestamp to pretty date format in local timezone"""
+    # Convert milliseconds to seconds if necessary
+    epoch_sec = epoch_ms / 1000 if epoch_ms > 1000000000000 else epoch_ms
+    
+    # Create datetime object in UTC
+    utc_dt = datetime.fromtimestamp(epoch_sec, pytz.UTC)
+    
+    # Convert to local timezone
+    local_tz = pytz.timezone(TIMEZONE)
+    local_dt = utc_dt.astimezone(local_tz)
+    
+    # Format date: "Sat 15 Feb, 11:29 AM"
+    return local_dt.strftime("%a %d %b, %I:%M %p")
 
 async def post_to_webhook(data: dict):
     """Post data to the webhook endpoint"""
     headers = {
         "Content-Type": "application/json"
     }
+    
+    # Add pretty date format if dateutc exists
+    if 'dateutc' in data:
+        data['date_pretty'] = format_date(int(data['dateutc']))
     
     # Format the data to match the expected structure
     payload = {

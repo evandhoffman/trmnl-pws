@@ -28,4 +28,5 @@ jobs:
       env:
         AMBIENT_API_KEY: ${{ secrets.AMBIENT_API_KEY }}
         AMBIENT_APPLICATION_KEY: ${{ secrets.AMBIENT_APPLICATION_KEY }}
+        TIMEZONE: ${{ secrets.TIMEZONE }}
       run: python ambient_claude_trmnl.py
