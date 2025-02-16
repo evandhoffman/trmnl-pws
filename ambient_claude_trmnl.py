@@ -4,8 +4,7 @@ from aioambient.api import API
 import httpx
 import os
 from dotenv import load_dotenv
-from datetime import datetime
-import pytz
+from datetime import datetime, timezone
 
 # Load environment variables
 load_dotenv()
@@ -23,22 +22,28 @@ WEBHOOK_URL = f"https://usetrmnl.com/api/custom_plugins/{WEBHOOK_ID}"
 TIMEZONE = os.getenv('TIMEZONE', 'America/New_York')
 
 if not WEBHOOK_ID:
-    raise ValueError("Missing WEBHOOK_ID environment variable")  # Default to Eastern Time if not specified
+    raise ValueError("Missing WEBHOOK_ID environment variable")
 
-def format_date(epoch_ms: int) -> str:
-    """Convert epoch timestamp to pretty date format in local timezone"""
-    # Convert milliseconds to seconds if necessary
-    epoch_sec = epoch_ms / 1000 if epoch_ms > 1000000000000 else epoch_ms
+def format_last_rain(last_rain_str: str) -> str:
+    """Calculate relative time since last rain"""
+    last_rain = datetime.fromisoformat(last_rain_str.replace('Z', '+00:00'))
+    now = datetime.now(timezone.utc)
+    diff = now - last_rain
+    minutes = diff.total_seconds() / 60
     
-    # Create datetime object in UTC
-    utc_dt = datetime.fromtimestamp(epoch_sec, pytz.UTC)
-    
-    # Convert to local timezone
-    local_tz = pytz.timezone(TIMEZONE)
-    local_dt = utc_dt.astimezone(local_tz)
-    
-    # Format date: "Sat 15 Feb, 11:29 AM"
-    return local_dt.strftime("%a %d %b, %I:%M %p")
+    if minutes < 15:
+        return "just now"
+    elif minutes < 60:
+        return f"{int(minutes)} minutes ago"
+    elif minutes < 1440:  # 24 hours
+        hours = int(minutes / 60)
+        return f"{hours} hours ago"
+    elif minutes < 20160:  # 14 days
+        days = int(minutes / 1440)
+        return f"{days} days ago"
+    else:
+        weeks = int(minutes / 10080)  # 7 days
+        return f"{weeks} weeks ago"
 
 async def post_to_webhook(data: dict):
     """Post data to the webhook endpoint"""
@@ -46,13 +51,16 @@ async def post_to_webhook(data: dict):
         "Content-Type": "application/json"
     }
     
-    # Add pretty date format if dateutc exists
-    if 'dateutc' in data:
-        data['date_pretty'] = format_date(int(data['dateutc']))
+    # Create a copy of the data to avoid modifying the original
+    webhook_data = data.copy()
+    
+    # Add relative time for last rain
+    if 'lastRain' in webhook_data:
+        webhook_data['last_rain_date_pretty'] = format_last_rain(webhook_data['lastRain'])
     
     # Format the data to match the expected structure
     payload = {
-        "merge_variables": data
+        "merge_variables": webhook_data
     }
     
     async with httpx.AsyncClient() as client:
