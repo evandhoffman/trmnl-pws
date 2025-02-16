@@ -7,7 +7,7 @@
           <div class="content">
             <span class="value value--xxxlarge">{{tempf | round}}°</span>
             <span class="label w--full">
-              Wind: {{windspeedmph}} mph at {{winddir}}°
+              {{winddir_pretty}}
             </span>
           </div>
         </div>
@@ -55,7 +55,7 @@
         <div class="item">
           <div class="meta"></div>
           <div class="content">
-            <span class="value value--small">Last Rain: {{lastRain}}</span>
+            <span class="value value--small">Last Rain: {{last_rain_date_pretty}}</span>
             <span class="label">Today's Rain: {{dailyrainin}} inches</span>
           </div>
         </div>
@@ -64,6 +64,7 @@
   </div>
 
   <div class="title_bar">
+    <img class="image" src="/images/plugins/weather-station.svg" />
     <h1 class="title">Last updated: {{date_pretty}}</h1>
     <span class="instance">{{trmnl['plugin_settings']['instance_name']}}</span>
   </div>

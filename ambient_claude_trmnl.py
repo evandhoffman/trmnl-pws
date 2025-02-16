@@ -45,6 +45,15 @@ def format_last_rain(last_rain_str: str) -> str:
         weeks = int(minutes / 10080)  # 7 days
         return f"{weeks} weeks ago"
 
+def get_cardinal_direction(degrees: float) -> str:
+    """Convert degrees to cardinal direction"""
+    directions = [
+        "N", "NNE", "NE", "ENE", "E", "ESE", "SE", "SSE",
+        "S", "SSW", "SW", "WSW", "W", "WNW", "NW", "NNW"
+    ]
+    index = round(((degrees % 360) / 22.5)) % 16
+    return directions[index]
+
 async def post_to_webhook(data: dict):
     """Post data to the webhook endpoint"""
     headers = {
@@ -57,6 +66,11 @@ async def post_to_webhook(data: dict):
     # Add relative time for last rain
     if 'lastRain' in webhook_data:
         webhook_data['last_rain_date_pretty'] = format_last_rain(webhook_data['lastRain'])
+    
+    # Add cardinal wind direction
+    if 'winddir' in webhook_data and 'windspeedmph' in webhook_data:
+        cardinal = get_cardinal_direction(float(webhook_data['winddir']))
+        webhook_data['winddir_pretty'] = f"{webhook_data['windspeedmph']} mph from the {cardinal}"
     
     # Format the data to match the expected structure
     payload = {
