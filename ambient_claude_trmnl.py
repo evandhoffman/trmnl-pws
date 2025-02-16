@@ -67,6 +67,19 @@ async def post_to_webhook(data: dict):
     if 'lastRain' in webhook_data:
         webhook_data['last_rain_date_pretty'] = format_last_rain(webhook_data['lastRain'])
     
+    # Add formatted date for current reading
+    if 'dateutc' in webhook_data:
+        epoch_ms = int(webhook_data['dateutc'])
+        # Convert milliseconds to seconds if necessary
+        epoch_sec = epoch_ms / 1000 if epoch_ms > 1000000000000 else epoch_ms
+        # Create datetime in UTC
+        utc_dt = datetime.fromtimestamp(epoch_sec, timezone.utc)
+        # Convert to local timezone
+        local_tz = pytz.timezone(TIMEZONE)
+        local_dt = utc_dt.astimezone(local_tz)
+        # Format: "Sun 16 Feb, 03:15 PM"
+        webhook_data['date_pretty'] = local_dt.strftime("%a %d %b, %I:%M %p")
+    
     # Add cardinal wind direction
     if 'winddir' in webhook_data and 'windspeedmph' in webhook_data:
         cardinal = get_cardinal_direction(float(webhook_data['winddir']))
