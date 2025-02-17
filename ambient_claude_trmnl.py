@@ -3,6 +3,7 @@ import logging
 from aioambient.api import API
 import httpx
 import os
+import signal
 from dotenv import load_dotenv
 from datetime import datetime, timezone
 import pytz
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 WEBHOOK_ID = os.getenv('WEBHOOK_ID')
 WEBHOOK_URL = f"https://usetrmnl.com/api/custom_plugins/{WEBHOOK_ID}"
 TIMEZONE = os.getenv('TIMEZONE', 'America/New_York')
+INTERVAL_SECONDS = int(os.getenv('INTERVAL_SECONDS', '300'))  # Default to 5 minutes
 
 if not WEBHOOK_ID:
     raise ValueError("Missing WEBHOOK_ID environment variable")
@@ -139,5 +141,42 @@ async def fetch_and_post_weather_data():
         logger.error(f"Error in fetch and post operation: {str(e)}")
         raise
 
+async def main():
+    # Setup signal handlers
+    loop = asyncio.get_running_loop()
+    loop.add_signal_handler(signal.SIGINT, lambda: asyncio.create_task(shutdown()))
+    loop.add_signal_handler(signal.SIGTERM, lambda: asyncio.create_task(shutdown()))
+
+    logger.info(f"Starting weather collection service. Interval: {INTERVAL_SECONDS} seconds")
+    
+    try:
+        while True:
+            try:
+                await fetch_and_post_weather_data()
+            except Exception as e:
+                logger.error(f"Error in main loop: {str(e)}")
+                
+            logger.info(f"Sleeping for {INTERVAL_SECONDS} seconds...")
+            await asyncio.sleep(INTERVAL_SECONDS)
+    except asyncio.CancelledError:
+        logger.info("Main loop cancelled, shutting down...")
+
+async def shutdown(signal=None):
+    if signal:
+        logger.info(f"Received exit signal {signal.name}...")
+    
+    tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+    [task.cancel() for task in tasks]
+    
+    logger.info(f"Cancelling {len(tasks)} outstanding tasks")
+    await asyncio.gather(*tasks, return_exceptions=True)
+    logger.info("Shutdown complete.")
+
 if __name__ == "__main__":
-    asyncio.run(fetch_and_post_weather_data())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("Received KeyboardInterrupt, exiting...")
+    except Exception as e:
+        logger.error(f"Unexpected error: {str(e)}")
+        raise
