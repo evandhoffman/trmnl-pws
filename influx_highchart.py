@@ -179,7 +179,7 @@ def process_temperature_data(records: List[Dict[str, Any]]) -> Dict[str, Any]:
         Dictionary with temperature data and statistics formatted for Highcharts
     """
     # Extract relevant fields and organize by sensor
-    sensors = {}
+    sensors_data = {}
     all_temps = []
     
     for record in records:
@@ -215,21 +215,27 @@ def process_temperature_data(records: List[Dict[str, Any]]) -> Dict[str, Any]:
         timestamp_ms = int(timestamp.timestamp() * 1000)
         
         # Add to sensor data
-        if entity_id not in sensors:
-            sensors[entity_id] = {
-                "name": entity_id,
-                "data": []
-            }
+        if entity_id not in sensors_data:
+            sensors_data[entity_id] = []
             
         # Add data point in Highcharts format [timestamp_ms, value]
-        sensors[entity_id]["data"].append([timestamp_ms, temp])
+        sensors_data[entity_id].append([timestamp_ms, temp])
         
-    # Format sensors for Highcharts (as array of series)
-    highcharts_series = list(sensors.values())
-    for series in highcharts_series:
-        # Sort data by timestamp
-        series["data"].sort(key=lambda x: x[0])
+    # Sort data by timestamp for each sensor
+    for entity_id in sensors_data:
+        sensors_data[entity_id].sort(key=lambda x: x[0])
         
+    # Create display names mapping
+    display_names = {
+        "evan_s_pws_inside_temp": "Inside Temperature",
+        "evan_s_pws_temp": "Outside Temperature",
+        "evan_s_pws_dew_point": "Dew Point",
+        "evan_s_pws_temp_1": "Sensor 1 Temperature",
+        "evan_s_pws_temp_2": "Sensor 2 Temperature",
+        "evan_s_pws_temp_3": "Sensor 3 Temperature",
+        "evan_s_pws_temp_5": "Sensor 5 Temperature"
+    }
+    
     # Calculate statistics
     stats = {}
     if all_temps:
@@ -242,19 +248,20 @@ def process_temperature_data(records: List[Dict[str, Any]]) -> Dict[str, Any]:
         
     # Get most recent reading for each sensor
     most_recent = {}
-    for entity_id, series in sensors.items():
-        if series["data"]:
+    for entity_id, data_points in sensors_data.items():
+        if data_points:
             # Get the last data point (they're sorted)
-            last_point = series["data"][-1]
+            last_point = data_points[-1]
             most_recent[entity_id] = {
                 "temperature": last_point[1],
                 "timestamp": datetime.fromtimestamp(last_point[0] / 1000),
-                "entity_id": entity_id
+                "entity_id": entity_id,
+                "display_name": display_names.get(entity_id, entity_id.replace("evan_s_pws_", "").replace("_", " ").title())
             }
             
     # Format data for webhook
+    # Create a result with top-level keys for each sensor's data
     result = {
-        "temperature_data": highcharts_series,  # Array of series objects ready for Highcharts
         "statistics": stats,
         "most_recent": most_recent,
         "highcharts_options": {
@@ -278,8 +285,21 @@ def process_temperature_data(records: List[Dict[str, Any]]) -> Dict[str, Any]:
                 "shared": True,
                 "crosshairs": True
             }
-        }
+        },
+        "display_names": display_names  # Mapping of entity_id to display names
     }
+    
+    # Add each sensor's data as a top-level key
+    for entity_id, data in sensors_data.items():
+        # Regular array data
+        key_name = f"temp_data_{entity_id}"
+        result[key_name] = data
+        
+        # JavaScript-compatible string representation
+        js_key_name = f"js_{entity_id}"
+        # Convert the array to a JavaScript-compatible string
+        js_data_str = str(data).replace("'", "")  # Remove single quotes to make it JS-compatible
+        result[js_key_name] = js_data_str
     
     return result
 

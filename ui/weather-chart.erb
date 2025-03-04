@@ -1,0 +1,204 @@
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartkick@5.0.1/dist/chartkick.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        .view {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+            background-color: white;
+        }
+        .view--full {
+            padding: 16px;
+            box-sizing: border-box;
+        }
+        .layout {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .layout--col {
+            flex-direction: column;
+        }
+        .gap--space-between {
+            justify-content: space-between;
+        }
+        .grid {
+            display: grid;
+            margin-bottom: 16px;
+        }
+        .grid--cols-3 {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+        .item {
+            border: 1px solid black;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+        }
+        .content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        .value--tnums {
+            font-variant-numeric: tabular-nums;
+        }
+        .label {
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        .title_bar {
+            display: flex;
+            align-items: center;
+            margin-top: 16px;
+            border-top: 1px solid black;
+            padding-top: 8px;
+        }
+        .image {
+            height: 24px;
+            margin-right: 8px;
+        }
+        .title {
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        .instance {
+            font-size: 12px;
+            color: #666;
+        }
+        #freezing-line {
+            stroke: black;
+            stroke-width: 1;
+            stroke-dasharray: 2,2;
+        }
+    </style>
+</head>
+<body>
+    <div class="view view--full">
+
+            <div id="weather-chart" style="width: 100%"></div>
+
+        <div class="title_bar">
+            <svg class="image" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 2C6.5 2 2 6.5 2 12C2 17.5 6.5 22 12 22C17.5 22 22 17.5 22 12C22 6.5 17.5 2 12 2ZM12 4C16.4 4 20 7.6 20 12C20 16.4 16.4 20 12 20C7.6 20 4 16.4 4 12C4 7.6 7.6 4 12 4ZM12 6C8.7 6 6 8.7 6 12C6 15.3 8.7 18 12 18C15.3 18 18 15.3 18 12C18 8.7 15.3 6 12 6ZM12 8C14.2 8 16 9.8 16 12C16 14.2 14.2 16 12 16C9.8 16 8 14.2 8 12C8 9.8 9.8 8 12 8Z" fill="black"/>
+            </svg>
+            <span class="title">Weather Station</span>
+            <span class="instance">Temperature</span>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        var data = {{js_evan_s_pws_temp}};
+
+        // recommended configs to achieve the e-ink friendly aesthetic
+        var createChart = function() {
+            new Chartkick["LineChart"](
+            "weather-chart",
+            data,
+            {
+                adapter: "highcharts",
+                suffix: "°F",
+                thousands: ",",
+                points: false,
+                colors: ["black"],
+                curve: true,
+                // Use native Highcharts datetime formatting
+                xtype: "datetime",
+                library: {
+                    chart: {
+                        height: 360,
+                        style: {
+                            fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+                        }
+                    },
+                    plotOptions: {
+                        series: {
+                            animation: false,
+                            lineWidth: 4,
+                            marker: {
+                                enabled: false
+                            },
+                            zones: [
+                                {
+                                    value: 32,
+                                    color: "black",
+                                    fillColor: "black",
+                                    dashStyle: "Solid"
+                                },
+                                {
+                                    color: "black"
+                                }
+                            ]
+                        }
+                    },
+                    yAxis: {
+                        labels: {
+                            style: {
+                                fontSize: "16px",
+                                color: "#000000"
+                            }
+                        },
+                        gridLineDashStyle: "shortdot",
+                        gridLineWidth: 1,
+                        gridLineColor: "#000000",
+                        tickAmount: 5,
+                        plotLines: [{
+                            value: 32,
+                            width: 1,
+                            dashStyle: 'shortdash',
+                            label: {
+                                text: 'Freezing (32°F)',
+                                align: 'right',
+                                style: {
+                                    color: 'black',
+                                    fontWeight: 'bold',
+                                    fontSize: '12px'
+                                }
+                            }
+                        }]
+                    },
+                    xAxis: {
+                        type: "datetime",
+                        labels: {
+                            style: {
+                                fontSize: "16px",
+                                color: "#000000"
+                            },
+                            formatter: function() {
+                                // Custom formatter to show only time without date
+                                return Highcharts.dateFormat("%H:%M", this.value);
+                            }
+                        },
+                        lineWidth: 0,
+                        gridLineDashStyle: "dot",
+                        tickWidth: 1,
+                        tickLength: 0,
+                        gridLineWidth: 1,
+                        gridLineColor: "#000000",
+                        tickPixelInterval: 120
+                    }
+                }
+            });
+        };
+
+        // ensure your chart loads before plugin render is generated
+        if ("Chartkick" in window) {
+            createChart();
+        } else {
+            window.addEventListener("chartkick:load", createChart, true);
+        }
+    </script>
+
