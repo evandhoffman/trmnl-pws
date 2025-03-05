@@ -1,5 +1,8 @@
     <script src="https://code.highcharts.com/highcharts.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartkick@5.0.1/dist/chartkick.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.40/moment-timezone-with-data.min.js"></script>
+
     <style>
         body {
             margin: 0;
@@ -118,6 +121,9 @@
                 // Use native Highcharts datetime formatting
                 xtype: "datetime",
                 library: {
+                    time: {
+                        timezone: "America/New_York" // Set timezone here
+                    },
                     chart: {
                         height: 360,
                         style: {
@@ -178,8 +184,7 @@
                                 color: "#000000"
                             },
                             formatter: function() {
-                                // Custom formatter to show only time without date
-                                return Highcharts.dateFormat("%H:%M", this.value);
+                                return moment.tz(this.value, "America/New_York").format("HH:mm");
                             }
                         },
                         lineWidth: 0,
@@ -201,4 +206,3 @@
             window.addEventListener("chartkick:load", createChart, true);
         }
     </script>
-
