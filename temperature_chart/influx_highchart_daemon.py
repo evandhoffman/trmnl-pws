@@ -259,10 +259,14 @@ def process_temperature_data(records: List[Dict[str, Any]]) -> Dict[str, Any]:
                 "entity_id": entity_id,
                 "display_name": display_names.get(entity_id, entity_id.replace("evan_s_pws_", "").replace("_", " ").title())
             }
-            
+
+    local_now = datetime.now()
+    formatted_timestamp = local_now.strftime("%A, %B %-d, %-I:%M %p")
+
     # Format data for webhook
     # Create a result with top-level keys for each sensor's data
     result = {
+        "current_timestamp": formatted_timestamp,
         "statistics": stats,
         "most_recent": most_recent,
         "highcharts_options": {
