@@ -34,14 +34,14 @@ def format_last_rain(last_rain_str: str) -> str:
     diff = now - last_rain
     minutes = diff.total_seconds() / 60
     
-    if minutes < 15:
+    if minutes < 16:
         return "just now"
     elif minutes < 60:
         return f"{int(minutes)} minutes ago"
-    elif minutes < 1440:  # 24 hours
+    elif minutes < 2880:
         hours = int(minutes / 60)
         return f"{hours} hours ago"
-    elif minutes < 20160:  # 14 days
+    elif minutes < 43200:
         days = int(minutes / 1440)
         return f"{days} days ago"
     else:

@@ -1,0 +1,71 @@
+<div class="view view--full">
+  <div class="layout layout--col gap--space-between">
+    <div class="grid">
+      <div class="col col--span-6 col--end">
+        <div class="item h--full">
+          <div class="meta"></div>
+          <div class="content">
+            <span class="value value--xxxlarge">{{tempf | round}}°</span>
+            <span class="label w--full">
+              {{winddir_pretty}}
+            </span>
+          </div>
+        </div>
+      </div>
+      <div class="col col--span-3 col--end gap--medium">
+        <div class="item">
+          <div class="meta"></div>
+          <div class="icon">
+            <img class="weather-icon" src="/images/weather/wi-thermometer.svg" />
+          </div>
+          <div class="content">
+            <span class="value value--small">{{feelsLike | round}}°</span>
+            <span class="label">Feels Like</span>
+          </div>
+        </div>
+
+        <div class="item">
+          <div class="meta"></div>
+          <div class="icon">
+            <img class="weather-icon" src="/images/weather/wi-raindrops.svg" />
+          </div>
+          <div class="content">
+            <span class="value value--small">{{humidity}}%</span>
+            <span class="label">Humidity</span>
+          </div>
+        </div>
+
+        <div class="item">
+          <div class="meta"></div>
+          <div class="icon">
+            <img class="weather-icon" src="/images/weather/wi-day-sunny.svg" />
+          </div>
+          <div class="content">
+            <span class="value value--xsmall">{{solarradiation | round}} w/m²</span>
+            <span class="label">Solar Radiation</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="w-full b-h-gray-5"></div>
+
+    <div class="grid">
+      <div class="col">
+        <div class="item">
+          <div class="meta"></div>
+          <div class="content">
+            <span class="value value--small">Last Rain: {{last_rain_date_pretty}}</span>
+            <span class="label">Today's Rain: {{dailyrainin}} inches</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="title_bar">
+    <img class="image" src="/images/plugins/weather-station.svg" />
+    <h1 class="title">Last updated: {{date_pretty}}</h1>
+    <span class="instance">{{trmnl['plugin_settings']['instance_name']}}</span>
+  </div>
+</div>

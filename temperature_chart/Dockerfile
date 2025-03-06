@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Copy requirements and script
 COPY requirements.txt .
-COPY ambient_claude_trmnl.py .
+COPY influx_highchart_daemon.py .
 
 # Install dependencies
 RUN pip install --upgrade pip &&  pip install --no-cache-dir -r requirements.txt
@@ -18,4 +18,4 @@ RUN apt-get update && \
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
 # Run the script
-CMD ["python", "ambient_claude_trmnl.py"]
+CMD ["python", "influx_highchart_daemon.py"]

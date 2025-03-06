@@ -1,10 +1,9 @@
-version: '3.3'
-
+version: "3.3"
 services:
-  weather-collector:
+  temperature-webhook:
     build:
       context: .
       dockerfile: Dockerfile
     env_file:
       - .env
-    container_name: weather-collector
+    container_name: temperature-webhook
