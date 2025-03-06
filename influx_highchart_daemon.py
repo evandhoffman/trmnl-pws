@@ -420,8 +420,9 @@ def main():
                     logger.error("Failed to send data to webhook")
             
             # Wait for next iteration
-            logger.info(f"Waiting 600 seconds before next data collection...")
-            time.sleep(600)
+            sleep_seconds = 300
+            logger.info(f"Waiting {slee_seconds} seconds before next data collection...")
+            time.sleep(sleep_seconds)
             
         except Exception as e:
             logger.error(f"Error in main processing loop: {str(e)}", exc_info=True)
