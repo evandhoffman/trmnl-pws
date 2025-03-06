@@ -421,7 +421,7 @@ def main():
             
             # Wait for next iteration
             sleep_seconds = 300
-            logger.info(f"Waiting {slee_seconds} seconds before next data collection...")
+            logger.info(f"Waiting {sleep_seconds} seconds before next data collection...")
             time.sleep(sleep_seconds)
             
         except Exception as e:
