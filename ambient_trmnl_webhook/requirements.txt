@@ -1,0 +1,4 @@
+aioambient
+httpx
+python-dotenv
+pytz
