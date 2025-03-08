@@ -1,0 +1,201 @@
+<script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartkick@5.0.1/dist/chartkick.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.40/moment-timezone-with-data.min.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+        .view {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            width: 100%;
+            background-color: white;
+        }
+        .view--full {
+            padding: 16px;
+            box-sizing: border-box;
+        }
+        .layout {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+        .layout--col {
+            flex-direction: column;
+        }
+        .gap--space-between {
+            justify-content: space-between;
+        }
+        .grid {
+            display: grid;
+            margin-bottom: 16px;
+        }
+        .grid--cols-3 {
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+        .item {
+            border: 1px solid black;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+        }
+        .content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 4px;
+        }
+        .value--tnums {
+            font-variant-numeric: tabular-nums;
+        }
+        .label {
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        .title_bar {
+            display: flex;
+            align-items: center;
+            margin-top: 16px;
+            border-top: 1px solid black;
+            padding-top: 8px;
+        }
+        .image {
+            height: 24px;
+            margin-right: 8px;
+        }
+        .title {
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        .instance {
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="view view--full">
+
+            <div id="solar-chart" style="width: 100%"></div>
+
+        <div class="title_bar">
+            <svg class="image" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 3L4 6v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V6l-8-3zm0 2.87L17 8.25V12c0 3.9-2.55 7.46-6 8.6-3.45-1.14-6-4.7-6-8.6V8.25l6-2.38z" fill="black"/>
+            </svg>
+            <span class="title">Solar Power Monitor</span>
+            <span class="instance">Power Stats @ {{current_timestamp}}</span>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        // Empty data arrays to be filled in later
+        var gridData = {{str_bellmore_grid_power}};
+        var loadData = [];
+        var solarData = {{str_bellmore_solar_power}};
+        var batteryData = [];
+
+        // recommended configs to achieve the e-ink friendly aesthetic
+        var createChart = function() {
+            new Chartkick["LineChart"](
+            "solar-chart",
+            [
+                {name: "Grid Power", data: gridData, dashStyle: "dot"},
+                {name: "House Load", data: loadData, dashStyle: "dash"},
+                {name: "Solar Generation", data: solarData, dashStyle: "solid"},
+                {name: "Battery Power", data: batteryData, dashStyle: "dashdot"}
+            ],
+            {
+                adapter: "highcharts",
+                suffix: "kW",
+                thousands: ",",
+                points: false,
+                colors: ["#000000", "#000000", "#000000", "#000000"],
+                curve: true,
+                // Use native Highcharts datetime formatting
+                xtype: "datetime",
+                library: {
+                    time: {
+                        timezone: "America/New_York" // Set timezone here
+                    },
+                    chart: {
+                        title: {
+                          text: 'Rooftop Solar Power'
+                        },
+                        height: 360,
+                        style: {
+                            fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+                        }
+                    },
+                    plotOptions: {
+                        series: {
+                            animation: false,
+                            lineWidth: 1,
+                            marker: {
+                                enabled: false
+                            }
+                        }
+                    },
+                    legend: {
+                        enabled: false,
+                        itemStyle: {
+                            color: '#000000',
+                            fontWeight: 'normal'
+                        }
+                    },
+                    yAxis: {
+                        title: {
+                          text: 'Power (kW)'
+                        },
+                        labels: {
+                            style: {
+                                fontSize: "16px",
+                                color: "#000000"
+                            }
+                        },
+                        gridLineDashStyle: "shortdot",
+                        gridLineWidth: 1,
+                        gridLineColor: "#000000"
+                    },
+                    xAxis: {
+                        type: "datetime",
+                        labels: {
+                            style: {
+                                fontSize: "16px",
+                                color: "#000000"
+                            },
+                            formatter: function() {
+                                return moment.tz(this.value, "America/New_York").format("HH:mm");
+                            }
+                        },
+                        lineWidth: 0,
+                        gridLineDashStyle: "dot",
+                        tickWidth: 1,
+                        tickLength: 0,
+                        gridLineWidth: 1,
+                        gridLineColor: "#000000",
+                        tickPixelInterval: 60
+                    }
+                }
+            });
+        };
+
+        // ensure your chart loads before plugin render is generated
+        if ("Chartkick" in window) {
+            createChart();
+        } else {
+            window.addEventListener("chartkick:load", createChart, true);
+        }
+    </script>
+</body>
+</html>

@@ -166,7 +166,31 @@ def execute_query(
         bucket=bucket
     )
     
-    return client.query(flux_query)
+    # Log the query before execution
+    logger.debug(f"Executing flux query: {flux_query}")
+    
+    # Get the raw results
+    results = client.query(flux_query)
+    
+    # Clean and validate results to ensure we only have the expected fields
+    cleaned_records = []
+    for record in results:
+        # Ensure we have the minimum required fields
+        if "_value" in record and "_time" in record:
+            # Create a clean record with only the necessary fields
+            clean_record = {
+                "_time": record["_time"],
+                "_value": record["_value"]
+            }
+            
+            # Add entity_id if it exists
+            if "entity_id" in record:
+                clean_record["entity_id"] = record["entity_id"]
+                
+            cleaned_records.append(clean_record)
+    
+    logger.info(f"Cleaned {len(cleaned_records)} records from InfluxDB response")
+    return cleaned_records
 
 def process_solar_data(current_records: List[Dict[str, Any]], daily_records: List[Dict[str, Any]], config) -> Dict[str, Any]:
     """
@@ -220,7 +244,7 @@ def process_solar_data(current_records: List[Dict[str, Any]], daily_records: Lis
         # Convert timestamp to milliseconds for Highcharts
         timestamp_ms = int(timestamp.timestamp() * 1000)
         
-        # Add to sensor data
+        # Add to sensor data - just timestamp and value
         if entity_id not in sensors_data:
             sensors_data[entity_id] = []
             
@@ -256,7 +280,7 @@ def process_solar_data(current_records: List[Dict[str, Any]], daily_records: Lis
         # Convert timestamp to milliseconds for Highcharts
         timestamp_ms = int(timestamp.timestamp() * 1000)
         
-        # Add data point in Highcharts format [timestamp_ms, value]
+        # Add only timestamp and value for Highcharts
         daily_energy_data.append([timestamp_ms, energy])
     
     # Sort daily energy data by timestamp
@@ -341,21 +365,16 @@ def process_solar_data(current_records: List[Dict[str, Any]], daily_records: Lis
         "display_names": display_names
     }
     
-    # Add each sensor's power data as a top-level key
+    # Add each sensor's power data as stringified arrays only
     for entity_id, data in sensors_data.items():
-        # Regular array data
-        key_name = f"power_data_{entity_id}"
-        result[key_name] = data
-        
-        # JavaScript-compatible string representation
-        js_key_name = f"js_{entity_id}"
+        # JavaScript-compatible string representation with str_ prefix
+        str_key_name = f"str_{entity_id}"
         # Convert the array to a JavaScript-compatible string
-        js_data_str = str(data).replace("'", "")  # Remove single quotes to make it JS-compatible
-        result[js_key_name] = js_data_str
+        str_data_str = str(data).replace("'", "")  # Remove single quotes to make it JS-compatible
+        result[str_key_name] = str_data_str
     
-    # Add daily energy data
-    result["daily_energy_data"] = daily_energy_data
-    result["js_daily_energy"] = str(daily_energy_data).replace("'", "")
+    # Add daily energy data as stringified array only
+    result["str_daily_energy"] = str(daily_energy_data).replace("'", "")
     
     return result
 

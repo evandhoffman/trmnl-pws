@@ -4,7 +4,7 @@ WORKDIR /app
 
 # Copy requirements and script
 COPY requirements.txt .
-COPY config.yml .
+COPY config.yaml .
 COPY solar_data.py .
 
 # Install dependencies
