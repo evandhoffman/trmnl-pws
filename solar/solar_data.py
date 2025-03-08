@@ -170,7 +170,7 @@ def execute_query(
 
 def process_solar_data(current_records: List[Dict[str, Any]], daily_records: List[Dict[str, Any]], config) -> Dict[str, Any]:
     """
-    Process solar power data and calculate statistics
+    Process solar power data without statistical calculations
     
     Args:
         current_records: Current solar power records from InfluxDB
@@ -217,8 +217,6 @@ def process_solar_data(current_records: List[Dict[str, Any]], daily_records: Lis
                 logger.debug(f"Could not parse timestamp: {timestamp}")
                 continue
                             
-        all_power_values.append(power)
-        
         # Convert timestamp to milliseconds for Highcharts
         timestamp_ms = int(timestamp.timestamp() * 1000)
         
@@ -264,16 +262,6 @@ def process_solar_data(current_records: List[Dict[str, Any]], daily_records: Lis
     # Sort daily energy data by timestamp
     daily_energy_data.sort(key=lambda x: x[0])
     
-    # Calculate statistics for current power
-    power_stats = {}
-    if all_power_values:
-        power_stats = {
-            "min": min(all_power_values),
-            "max": max(all_power_values),
-            "avg": statistics.mean(all_power_values) if all_power_values else None,
-            "count": len(all_power_values)
-        }
-        
     # Get most recent reading for each sensor
     most_recent = {}
     for entity_id, data_points in sensors_data.items():
@@ -286,18 +274,6 @@ def process_solar_data(current_records: List[Dict[str, Any]], daily_records: Lis
                 "entity_id": entity_id,
                 "display_name": display_names.get(entity_id, entity_id.replace("_", " ").title())
             }
-
-    # Calculate daily energy statistics
-    daily_energy_stats = {}
-    daily_energy_values = [point[1] for point in daily_energy_data]
-    if daily_energy_values:
-        daily_energy_stats = {
-            "min": min(daily_energy_values),
-            "max": max(daily_energy_values),
-            "avg": statistics.mean(daily_energy_values),
-            "sum": sum(daily_energy_values),
-            "count": len(daily_energy_values)
-        }
 
     # Get timezone from config
     timezone_str = config.get('general', {}).get('timezone', 'UTC')
@@ -315,8 +291,6 @@ def process_solar_data(current_records: List[Dict[str, Any]], daily_records: Lis
     # Format data for webhook
     result = {
         "current_timestamp": formatted_timestamp,
-        "power_statistics": power_stats,
-        "energy_statistics": daily_energy_stats,
         "most_recent": most_recent,
         "highcharts_options": {
             "power_chart": {
