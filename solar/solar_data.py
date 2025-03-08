@@ -281,10 +281,11 @@ def process_solar_data(current_records: List[Dict[str, Any]], daily_records: Lis
         timestamp_ms = int(timestamp.timestamp() * 1000)
         
         # Add only timestamp and value for Highcharts
-        daily_energy_data.append([timestamp_ms, energy])
+        #daily_energy_data.append([timestamp_ms, energy])
+        daily_energy_data = round(energy,1)
     
     # Sort daily energy data by timestamp
-    daily_energy_data.sort(key=lambda x: x[0])
+    #daily_energy_data.sort(key=lambda x: x[0])
     
     # Get most recent reading for each sensor
     most_recent = {}
