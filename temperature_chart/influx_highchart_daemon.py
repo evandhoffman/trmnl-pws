@@ -13,7 +13,8 @@ import logging
 import urllib3
 import requests
 import statistics
-from datetime import datetime, timedelta
+import pytz
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional, Tuple
 
 # Disable SSL warnings
@@ -260,7 +261,9 @@ def process_temperature_data(records: List[Dict[str, Any]]) -> Dict[str, Any]:
                 "display_name": display_names.get(entity_id, entity_id.replace("evan_s_pws_", "").replace("_", " ").title())
             }
 
-    local_now = datetime.now()
+    utc_now = datetime.now(timezone.utc)
+    mytz = pytz.timezone(os.environ['TIME_ZONE'])
+    local_now = utc_now.astimezone(mytz)
     formatted_timestamp = local_now.strftime("%A, %B %-d, %-I:%M %p")
 
     # Format data for webhook
