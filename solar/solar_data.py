@@ -564,6 +564,7 @@ def main():
                 end_time=power_end_time,
                 bucket=bucket
             )
+            logger.info(" Successfully retrieved current power data")
             
             # Execute energy query
             daily_records = execute_query(
@@ -573,6 +574,7 @@ def main():
                 end_time=energy_end_time,
                 bucket=bucket
             )
+            logger.info(" Successfully retrieved daily energy data")
             
             if not current_records and not daily_records:
                 logger.warning("No solar data found")
