@@ -1,0 +1,9 @@
+version: "3.3"
+services:
+  temperature-webhook:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    container_name: temperature-webhook
