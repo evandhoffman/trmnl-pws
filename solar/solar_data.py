@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-InfluxDB to Webhook Temperature Data Sender
-Queries temperature data directly from InfluxDB and submits to a webhook
-Runs continuously with environment variable configuration
+InfluxDB to Webhook Solar Power Data Sender
+Queries solar power data directly from InfluxDB and submits to a webhook
+Runs continuously with configuration from a config file
 """
 
 import os
@@ -14,6 +14,8 @@ import urllib3
 import requests
 import statistics
 import pytz
+import argparse
+import yaml
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Any, Optional, Tuple
 
@@ -137,59 +139,67 @@ class InfluxDBClient:
         logger.info(f"Parsed {len(records)} records from InfluxDB response")
         return records
 
-def get_temperature_data(
-    client: InfluxDBClient, 
-    start_time: str, 
-    end_time: str, 
-    bucket: str, 
-    measurement: str
+def execute_query(
+    client: InfluxDBClient,
+    query_template: str,
+    start_time: str,
+    end_time: str,
+    bucket: str
 ) -> List[Dict[str, Any]]:
     """
-    Get temperature data from InfluxDB
+    Execute a Flux query with time range variables
     
     Args:
         client: InfluxDB client
+        query_template: Query template with {start_time}, {end_time}, and {bucket} placeholders
         start_time: Start time (Flux format)
         end_time: End time (Flux format)
         bucket: InfluxDB bucket
-        measurement: Measurement name
         
     Returns:
-        List of temperature records
+        List of query result records
     """
-    # Build Flux query
-    flux_query = f"""
-    from(bucket: "{bucket}")
-        |> range(start: {start_time}, stop: {end_time})
-        |> filter(fn: (r) => r["_measurement"] == "{measurement}")
-        |> filter(fn: (r) => r["_field"] == "value")
-        |> filter(fn: (r) => r["entity_id"] =~ /evan_s_pws_temp.*/ or r["entity_id"] == "evan_s_pws_inside_temp" or r["entity_id"] == "evan_s_pws_dew_point")
-        |> filter(fn: (r) => r._value < 130)
-        |> sort(columns: ["_time"], desc: false)
-    """
+    # Replace placeholders in the query template
+    flux_query = query_template.format(
+        start_time=start_time,
+        end_time=end_time,
+        bucket=bucket
+    )
     
     return client.query(flux_query)
 
-def process_temperature_data(records: List[Dict[str, Any]]) -> Dict[str, Any]:
+def process_solar_data(current_records: List[Dict[str, Any]], daily_records: List[Dict[str, Any]], config) -> Dict[str, Any]:
     """
-    Process temperature data and calculate statistics
+    Process solar power data and calculate statistics
     
     Args:
-        records: Temperature records from InfluxDB
+        current_records: Current solar power records from InfluxDB
+        daily_records: Daily energy records from InfluxDB
+        config: Configuration object
         
     Returns:
-        Dictionary with temperature data and statistics formatted for Highcharts
+        Dictionary with solar data formatted for Highcharts
     """
+    # Get display preferences from config
+    chart_config = config.get('charts', {})
+    display_names = {}
+    
+    # Parse display names from config
+    display_names_config = chart_config.get('display_names', {})
+    for entity_id, display_name in display_names_config.items():
+        display_names[entity_id] = display_name
+    
     # Extract relevant fields and organize by sensor
     sensors_data = {}
-    all_temps = []
+    all_power_values = []
     
-    for record in records:
+    # Process current power data
+    for record in current_records:
         if "_value" not in record or "entity_id" not in record or "_time" not in record:
             continue
             
         entity_id = record["entity_id"]
-        temp = record["_value"]
+        power = record["_value"]
         timestamp = record["_time"]
         
         # Convert timestamp if it's a string
@@ -207,11 +217,11 @@ def process_temperature_data(records: List[Dict[str, Any]]) -> Dict[str, Any]:
                 logger.debug(f"Could not parse timestamp: {timestamp}")
                 continue
                 
-        # Skip invalid temperatures
-        if temp is None or temp < -50 or temp > 150:
+        # Skip invalid power values
+        if power is None or power < 0 or power > 10000:  # Adjust the range as needed
             continue
             
-        all_temps.append(temp)
+        all_power_values.append(power)
         
         # Convert timestamp to milliseconds for Highcharts
         timestamp_ms = int(timestamp.timestamp() * 1000)
@@ -221,31 +231,51 @@ def process_temperature_data(records: List[Dict[str, Any]]) -> Dict[str, Any]:
             sensors_data[entity_id] = []
             
         # Add data point in Highcharts format [timestamp_ms, value]
-        sensors_data[entity_id].append([timestamp_ms, temp])
+        sensors_data[entity_id].append([timestamp_ms, power])
         
     # Sort data by timestamp for each sensor
     for entity_id in sensors_data:
         sensors_data[entity_id].sort(key=lambda x: x[0])
-        
-    # Create display names mapping
-    display_names = {
-        "evan_s_pws_inside_temp": "Inside Temperature",
-        "evan_s_pws_temp": "Outside Temperature",
-        "evan_s_pws_dew_point": "Dew Point",
-        "evan_s_pws_temp_1": "Sensor 1 Temperature",
-        "evan_s_pws_temp_2": "Sensor 2 Temperature",
-        "evan_s_pws_temp_3": "Sensor 3 Temperature",
-        "evan_s_pws_temp_5": "Sensor 5 Temperature"
-    }
     
-    # Calculate statistics
-    stats = {}
-    if all_temps:
-        stats = {
-            "min": min(all_temps),
-            "max": max(all_temps),
-            "avg": statistics.mean(all_temps) if all_temps else None,
-            "count": len(all_temps)
+    # Process daily energy data
+    daily_energy_data = []
+    for record in daily_records:
+        if "_value" not in record or "_time" not in record:
+            continue
+            
+        energy = record["_value"]
+        timestamp = record["_time"]
+        
+        # Convert timestamp if it's a string
+        if isinstance(timestamp, str):
+            try:
+                if '.' in timestamp and 'Z' in timestamp:
+                    timestamp = timestamp.split('.')[0] + '+00:00'
+                elif 'Z' in timestamp:
+                    timestamp = timestamp.replace('Z', '+00:00')
+                
+                timestamp = datetime.fromisoformat(timestamp)
+            except ValueError:
+                logger.debug(f"Could not parse timestamp: {timestamp}")
+                continue
+                
+        # Convert timestamp to milliseconds for Highcharts
+        timestamp_ms = int(timestamp.timestamp() * 1000)
+        
+        # Add data point in Highcharts format [timestamp_ms, value]
+        daily_energy_data.append([timestamp_ms, energy])
+    
+    # Sort daily energy data by timestamp
+    daily_energy_data.sort(key=lambda x: x[0])
+    
+    # Calculate statistics for current power
+    power_stats = {}
+    if all_power_values:
+        power_stats = {
+            "min": min(all_power_values),
+            "max": max(all_power_values),
+            "avg": statistics.mean(all_power_values) if all_power_values else None,
+            "count": len(all_power_values)
         }
         
     # Get most recent reading for each sensor
@@ -255,52 +285,96 @@ def process_temperature_data(records: List[Dict[str, Any]]) -> Dict[str, Any]:
             # Get the last data point (they're sorted)
             last_point = data_points[-1]
             most_recent[entity_id] = {
-                "temperature": last_point[1],
+                "power": last_point[1],
                 "timestamp": datetime.fromtimestamp(last_point[0] / 1000),
                 "entity_id": entity_id,
-                "display_name": display_names.get(entity_id, entity_id.replace("evan_s_pws_", "").replace("_", " ").title())
+                "display_name": display_names.get(entity_id, entity_id.replace("_", " ").title())
             }
 
+    # Calculate daily energy statistics
+    daily_energy_stats = {}
+    daily_energy_values = [point[1] for point in daily_energy_data]
+    if daily_energy_values:
+        daily_energy_stats = {
+            "min": min(daily_energy_values),
+            "max": max(daily_energy_values),
+            "avg": statistics.mean(daily_energy_values),
+            "sum": sum(daily_energy_values),
+            "count": len(daily_energy_values)
+        }
+
+    # Get timezone from config
+    timezone_str = config.get('general', {}).get('timezone', 'UTC')
     utc_now = datetime.now(timezone.utc)
-    mytz = pytz.timezone(os.environ['TIME_ZONE'])
+    mytz = pytz.timezone(timezone_str)
     local_now = utc_now.astimezone(mytz)
     formatted_timestamp = local_now.strftime("%A, %B %-d, %-I:%M %p")
 
+    # Get chart titles and units from config
+    power_chart_title = chart_config.get('power_chart_title', 'Solar Power Data')
+    power_chart_units = chart_config.get('power_chart_units', 'kW')
+    energy_chart_title = chart_config.get('energy_chart_title', 'Daily Solar Energy')
+    energy_chart_units = chart_config.get('energy_chart_units', 'kWh')
+
     # Format data for webhook
-    # Create a result with top-level keys for each sensor's data
     result = {
         "current_timestamp": formatted_timestamp,
-        "statistics": stats,
+        "power_statistics": power_stats,
+        "energy_statistics": daily_energy_stats,
         "most_recent": most_recent,
         "highcharts_options": {
-            "title": {
-                "text": "Temperature Data"
-            },
-            "xAxis": {
-                "type": "datetime",
+            "power_chart": {
                 "title": {
-                    "text": "Time"
+                    "text": power_chart_title
+                },
+                "xAxis": {
+                    "type": "datetime",
+                    "title": {
+                        "text": "Time"
+                    }
+                },
+                "yAxis": {
+                    "title": {
+                        "text": f"Power ({power_chart_units})"
+                    }
+                },
+                "tooltip": {
+                    "valueSuffix": f" {power_chart_units}",
+                    "xDateFormat": "%Y-%m-%d %H:%M:%S",
+                    "shared": True,
+                    "crosshairs": True
                 }
             },
-            "yAxis": {
+            "energy_chart": {
                 "title": {
-                    "text": "Temperature (°F)"
+                    "text": energy_chart_title
+                },
+                "xAxis": {
+                    "type": "datetime",
+                    "title": {
+                        "text": "Date"
+                    }
+                },
+                "yAxis": {
+                    "title": {
+                        "text": f"Energy ({energy_chart_units})"
+                    }
+                },
+                "tooltip": {
+                    "valueSuffix": f" {energy_chart_units}",
+                    "xDateFormat": "%Y-%m-%d",
+                    "shared": True,
+                    "crosshairs": True
                 }
-            },
-            "tooltip": {
-                "valueSuffix": "°F",
-                "xDateFormat": "%Y-%m-%d %H:%M:%S",
-                "shared": True,
-                "crosshairs": True
             }
         },
-        "display_names": display_names  # Mapping of entity_id to display names
+        "display_names": display_names
     }
     
-    # Add each sensor's data as a top-level key
+    # Add each sensor's power data as a top-level key
     for entity_id, data in sensors_data.items():
         # Regular array data
-        key_name = f"temp_data_{entity_id}"
+        key_name = f"power_data_{entity_id}"
         result[key_name] = data
         
         # JavaScript-compatible string representation
@@ -308,6 +382,10 @@ def process_temperature_data(records: List[Dict[str, Any]]) -> Dict[str, Any]:
         # Convert the array to a JavaScript-compatible string
         js_data_str = str(data).replace("'", "")  # Remove single quotes to make it JS-compatible
         result[js_key_name] = js_data_str
+    
+    # Add daily energy data
+    result["daily_energy_data"] = daily_energy_data
+    result["js_daily_energy"] = str(daily_energy_data).replace("'", "")
     
     return result
 
@@ -369,25 +447,94 @@ def calculate_time_range(hours_back: int) -> Tuple[str, str]:
             
     return flux_start, flux_end
 
-def main():
-    # Read configuration from environment variables
-    try:
-        webhook_url = os.environ['WEBHOOK_URL']
-        influx_url = os.environ['INFLUXDB_URL']
-        influx_org = os.environ['INFLUXDB_ORG']
-        influx_token = os.environ['INFLUXDB_TOKEN']
-        bucket = os.environ['INFLUXDB_BUCKET']
-        hours_back = int(os.environ.get('HOURS_BACK', 24))
+def calculate_daily_range(days_back: int) -> Tuple[str, str]:
+    """
+    Calculate time range for daily energy data
+    
+    Args:
+        days_back: Number of days to look back from now
         
-        # Optional: log level from env var
-        log_level = os.environ.get('LOG_LEVEL', 'INFO').upper()
+    Returns:
+        Tuple of (start, end) formatted for Flux
+    """
+    # End time is always now
+    flux_end = "now()"
+    
+    # Start time is a relative duration
+    flux_start = f"-{days_back}d"
+            
+    return flux_start, flux_end
+
+def load_config(config_file: str) -> Dict[str, Any]:
+    """
+    Load configuration from a YAML file
+    
+    Args:
+        config_file: Path to the configuration file
+        
+    Returns:
+        Dictionary with loaded configuration
+    """
+    if not os.path.exists(config_file):
+        logger.error(f"Configuration file not found: {config_file}")
+        raise FileNotFoundError(f"Configuration file not found: {config_file}")
+        
+    logger.info(f"Loading configuration from: {config_file}")
+    
+    with open(config_file, 'r') as file:
+        config = yaml.safe_load(file)
+    
+    # Validate required configuration
+    required_sections = ['general', 'influxdb', 'webhook', 'queries']
+    for section in required_sections:
+        if section not in config:
+            logger.error(f"Missing required configuration section: {section}")
+            raise ValueError(f"Missing required configuration section: {section}")
+    
+    return config
+
+def main():
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description='InfluxDB to Webhook Solar Data Sender')
+    parser.add_argument('-c', '--config', dest='config_file', default='config.yaml',
+                        help='Path to configuration file (default: config.yaml)')
+    args = parser.parse_args()
+    
+    try:
+        # Load configuration
+        config = load_config(args.config_file)
+        
+        # Set log level
+        general_config = config.get('general', {})
+        log_level = general_config.get('log_level', 'INFO').upper()
         logger.setLevel(getattr(logging, log_level))
         
-    except KeyError as e:
-        logger.error(f"Missing required environment variable: {e}")
-        return 1
-    except ValueError:
-        logger.error("Invalid HOURS_BACK value. Must be an integer.")
+        # Get InfluxDB configuration
+        influx_config = config.get('influxdb', {})
+        influx_url = influx_config.get('url')
+        influx_org = influx_config.get('org')
+        influx_token = influx_config.get('token')
+        bucket = influx_config.get('bucket')
+        verify_ssl = influx_config.get('verify_ssl', False)
+        
+        # Get webhook configuration
+        webhook_config = config.get('webhook', {})
+        webhook_url = webhook_config.get('url')
+        
+        # Get query time ranges
+        hours_back = general_config.get('hours_back', 24)
+        days_back = general_config.get('days_back', 30)
+        
+        # Get query templates
+        queries_config = config.get('queries', {})
+        power_query = queries_config.get('power_query')
+        energy_query = queries_config.get('energy_query')
+        
+        # Get polling interval
+        poll_interval = general_config.get('poll_interval', 300)
+        
+    except (FileNotFoundError, ValueError, yaml.YAMLError) as e:
+        logger.error(f"Configuration error: {str(e)}")
         return 1
 
     # Set up InfluxDB client
@@ -395,30 +542,43 @@ def main():
         url=influx_url,
         token=influx_token,
         org=influx_org,
-        verify_ssl=False  # Make configurable via env var if needed
+        verify_ssl=verify_ssl
     )
 
     # Main processing loop
     while True:
         try:
-            # Calculate time range based on hours back
-            start_time, end_time = calculate_time_range(hours_back)
-            logger.info(f"Querying temperature data for the past {hours_back} hours ({start_time} to {end_time})")
+            # Calculate time range for current power data
+            power_start_time, power_end_time = calculate_time_range(hours_back)
+            logger.info(f"Querying current power data for the past {hours_back} hours ({power_start_time} to {power_end_time})")
             
-            # Get temperature data
-            records = get_temperature_data(
+            # Calculate time range for daily energy data
+            energy_start_time, energy_end_time = calculate_daily_range(days_back)
+            logger.info(f"Querying daily energy data for the past {days_back} days ({energy_start_time} to {energy_end_time})")
+            
+            # Execute power query
+            current_records = execute_query(
                 client=client,
-                start_time=start_time,
-                end_time=end_time,
-                bucket=bucket,
-                measurement='°F'  # Hardcoded or could be from env var
+                query_template=power_query,
+                start_time=power_start_time,
+                end_time=power_end_time,
+                bucket=bucket
             )
             
-            if not records:
-                logger.warning("No temperature data found")
+            # Execute energy query
+            daily_records = execute_query(
+                client=client,
+                query_template=energy_query,
+                start_time=energy_start_time,
+                end_time=energy_end_time,
+                bucket=bucket
+            )
+            
+            if not current_records and not daily_records:
+                logger.warning("No solar data found")
             else:
                 # Process data
-                processed_data = process_temperature_data(records)
+                processed_data = process_solar_data(current_records, daily_records, config)
                 
                 # Send to webhook
                 success = send_to_webhook(webhook_url, processed_data)
@@ -427,16 +587,16 @@ def main():
                     logger.error("Failed to send data to webhook")
             
             # Wait for next iteration
-            sleep_seconds = 300
-            logger.info(f"Waiting {sleep_seconds} seconds before next data collection...")
-            time.sleep(sleep_seconds)
+            logger.info(f"Waiting {poll_interval} seconds before next data collection...")
+            time.sleep(poll_interval)
             
         except Exception as e:
             logger.error(f"Error in main processing loop: {str(e)}", exc_info=True)
             
             # Wait before retrying to avoid rapid error loops
-            logger.info("Waiting 60 seconds before retrying...")
-            time.sleep(60)
+            retry_interval = general_config.get('retry_interval', 60)
+            logger.info(f"Waiting {retry_interval} seconds before retrying...")
+            time.sleep(retry_interval)
 
 if __name__ == "__main__":
     sys.exit(main())
