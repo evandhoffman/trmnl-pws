@@ -216,11 +216,7 @@ def process_solar_data(current_records: List[Dict[str, Any]], daily_records: Lis
             except ValueError:
                 logger.debug(f"Could not parse timestamp: {timestamp}")
                 continue
-                
-        # Skip invalid power values
-        if power is None or power < 0 or power > 10000:  # Adjust the range as needed
-            continue
-            
+                            
         all_power_values.append(power)
         
         # Convert timestamp to milliseconds for Highcharts
