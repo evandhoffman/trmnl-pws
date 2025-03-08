@@ -4,7 +4,8 @@ WORKDIR /app
 
 # Copy requirements and script
 COPY requirements.txt .
-COPY influx_highchart_daemon.py .
+COPY config.yml .
+COPY solar_data.py .
 
 # Install dependencies
 RUN pip install --upgrade pip &&  pip install --no-cache-dir -r requirements.txt
@@ -18,4 +19,4 @@ RUN apt-get update && \
 ENTRYPOINT ["/usr/bin/tini", "--"]
 
 # Run the script
-CMD ["python", "influx_highchart_daemon.py"]
+CMD ["python", "solar_data.py"]

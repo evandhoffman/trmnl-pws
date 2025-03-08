@@ -1,9 +1,9 @@
 version: "3.3"
 services:
-  temperature-webhook:
+  solar-data:
     build:
       context: .
       dockerfile: Dockerfile
     env_file:
       - .env
-    container_name: temperature-webhook
+    container_name: solar-data
