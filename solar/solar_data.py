@@ -225,6 +225,9 @@ def process_solar_data(current_records: List[Dict[str, Any]], daily_records: Lis
         entity_id = record["entity_id"]
         power = record["_value"]
         timestamp = record["_time"]
+
+        if not power:
+            continue
         
         # Convert timestamp if it's a string
         if isinstance(timestamp, str):
