@@ -166,7 +166,7 @@ def get_temperature_data(
         |> filter(fn: (r) => r["domain"] == "sensor")
         |> filter(fn: (r) => r["entity_id"] ==  "evan_s_pws_temp")
         |> aggregateWindow(
-                every: 30m,
+                every: 10m,
                 fn: (tables=<-, column) => tables
                     |> mean(),
             )
