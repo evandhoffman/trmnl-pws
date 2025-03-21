@@ -163,9 +163,13 @@ def get_temperature_data(
         |> range(start: {start_time}, stop: {end_time})
         |> filter(fn: (r) => r["_measurement"] == "{measurement}")
         |> filter(fn: (r) => r["_field"] == "value")
-        |> filter(fn: (r) => r["entity_id"] =~ /evan_s_pws_temp.*/ or r["entity_id"] == "evan_s_pws_inside_temp" or r["entity_id"] == "evan_s_pws_dew_point")
-        |> filter(fn: (r) => r._value < 130)
-        |> sort(columns: ["_time"], desc: false)
+        |> filter(fn: (r) => r["domain"] == "sensor")
+        |> filter(fn: (r) => r["entity_id"] ==  "evan_s_pws_temp")
+        |> aggregateWindow(
+                every: 10m,
+                fn: (tables=<-, column) => tables
+                    |> mean(),
+            )
     """
     
     return client.query(flux_query)

@@ -1,6 +1,7 @@
 version: "3.3"
 services:
   temperature-webhook:
+    restart: always
     build:
       context: .
       dockerfile: Dockerfile

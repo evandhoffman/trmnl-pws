@@ -259,7 +259,7 @@ def process_solar_data(current_records: List[Dict[str, Any]], daily_records: Lis
         sensors_data[entity_id].sort(key=lambda x: x[0])
     
     # Process daily energy data
-    daily_energy_data = []
+    daily_energy_data = 0
     for record in daily_records:
         if "_value" not in record or "_time" not in record:
             continue
