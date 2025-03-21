@@ -1,6 +1,7 @@
 version: "3.3"
 services:
   solar-data:
+    restart: always
     build:
       context: .
       dockerfile: Dockerfile

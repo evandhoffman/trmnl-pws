@@ -2,6 +2,7 @@ version: '3.3'
 
 services:
   weather-collector:
+    restart: always
     build:
       context: .
       dockerfile: Dockerfile
