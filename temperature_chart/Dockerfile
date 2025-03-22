@@ -4,7 +4,6 @@ WORKDIR /app
 
 # Copy requirements and script
 COPY requirements.txt .
-COPY influx_highchart_daemon.py .
 
 # Install dependencies
 RUN pip install --upgrade pip &&  pip install --no-cache-dir -r requirements.txt
@@ -16,6 +15,8 @@ RUN apt-get update && \
 
 # Use tini as entrypoint
 ENTRYPOINT ["/usr/bin/tini", "--"]
+
+COPY influx_highchart_daemon.py .
 
 # Run the script
 CMD ["python", "influx_highchart_daemon.py"]
