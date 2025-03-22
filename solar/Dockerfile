@@ -4,8 +4,6 @@ WORKDIR /app
 
 # Copy requirements and script
 COPY requirements.txt .
-COPY config.yaml .
-COPY solar_data.py .
 
 # Install dependencies
 RUN pip install --upgrade pip &&  pip install --no-cache-dir -r requirements.txt
@@ -17,6 +15,9 @@ RUN apt-get update && \
 
 # Use tini as entrypoint
 ENTRYPOINT ["/usr/bin/tini", "--"]
+
+COPY config.yaml .
+COPY solar_data.py .
 
 # Run the script
 CMD ["python", "solar_data.py"]
