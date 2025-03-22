@@ -166,7 +166,7 @@ def get_temperature_data(
         |> filter(fn: (r) => r["domain"] == "sensor")
         |> filter(fn: (r) => r["entity_id"] ==  "evan_s_pws_temp")
         |> aggregateWindow(
-                every: 15m,
+                every: 10m,
                 fn: (tables=<-, column) => tables
                     |> mean(),
             )
@@ -214,6 +214,7 @@ def process_temperature_data(records: List[Dict[str, Any]]) -> Dict[str, Any]:
         # Skip invalid temperatures
         if temp is None or temp < -50 or temp > 150:
             continue
+        temp = round(temp,1)
             
         all_temps.append(temp)
         
