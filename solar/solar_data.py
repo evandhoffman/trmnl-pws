@@ -359,8 +359,9 @@ def send_to_webhook(url: str, data: Dict[str, Any]) -> bool:
     payload_size = len(json_data)
     logger.debug(f"JSON: {json.dumps(payload, indent=2)}")
     
-    if payload_size > 2000:
-        logger.warning(f"Payload size: {payload_size} bytes")
+    if payload_size > 2200:
+        logger.error(f"Payload size: {payload_size} bytes")
+        return False
     else:
         logger.info(f"Payload size: {payload_size} bytes")
 
