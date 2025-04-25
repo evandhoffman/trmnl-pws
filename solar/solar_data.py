@@ -229,7 +229,7 @@ def process_solar_data(current_records: List[Dict[str, Any]], daily_records: Lis
         if not power:
             continue
 
-        power = round(float(power),2)
+        power = round(float(power),1)
         
         # Convert timestamp if it's a string
         if isinstance(timestamp, str):
@@ -259,8 +259,9 @@ def process_solar_data(current_records: List[Dict[str, Any]], daily_records: Lis
     # Sort data by timestamp for each sensor
     for entity_id in sensors_data:
         sensors_data[entity_id].sort(key=lambda x: x[0])
+        logger.info(f'Sensor {entity_id} contains {len(sensors_data[entity_id])} items')
     
-    # Process daily energy data
+    # Process daily energy data (kwh)
     daily_energy_data = 0
     for record in daily_records:
         if "_value" not in record or "_time" not in record:
@@ -358,9 +359,11 @@ def send_to_webhook(url: str, data: Dict[str, Any]) -> bool:
     logger.info(f"Sending data to webhook: {url[:40]}...")
     payload_size = len(json_data)
     logger.debug(f"JSON: {json.dumps(payload, indent=2)}")
-    
-    if payload_size > 2200:
-        logger.error(f"Payload size: {payload_size} bytes")
+   
+    max_payload_size_bytes = 4000
+
+    if payload_size > max_payload_size_bytes:
+        logger.error(f"*** Payload size: {payload_size} bytes, max is {max_payload_size_bytes} bytes ***")
         return False
     else:
         logger.info(f"Payload size: {payload_size} bytes")
