@@ -210,13 +210,15 @@ def process_solar_data(daily_records: List[Dict[str, Any]], config) -> Dict[str,
     sensors_data = {}
     
     # Process daily energy data (kwh)
-    daily_energy_data = 0
+    daily_energy_data = {}
     for record in daily_records:
         if "_value" not in record or "_time" not in record:
             continue
             
         energy = record["_value"]
         timestamp = record["_time"]
+        entity_id = record["entity_id"]
+
         
         # Convert timestamp if it's a string
         if isinstance(timestamp, str):
@@ -236,7 +238,7 @@ def process_solar_data(daily_records: List[Dict[str, Any]], config) -> Dict[str,
         
         # Add only timestamp and value for Highcharts
         #daily_energy_data.append([timestamp_ms, energy])
-        daily_energy_data = round(energy, 1)
+        daily_energy_data[timestamp_ms][entity_id] = round(energy, 1)
     
     # Sort daily energy data by timestamp
     #daily_energy_data.sort(key=lambda x: x[0])
