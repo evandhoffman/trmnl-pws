@@ -142,9 +142,6 @@ class InfluxDBClient:
 def execute_query(
     client: InfluxDBClient,
     query_template: str,
-    start_time: str,
-    end_time: str,
-    bucket: str
 ) -> List[Dict[str, Any]]:
     """
     Execute a Flux query with time range variables
@@ -160,11 +157,7 @@ def execute_query(
         List of query result records
     """
     # Replace placeholders in the query template
-    flux_query = query_template.format(
-        start_time=start_time,
-        end_time=end_time,
-        bucket=bucket
-    )
+    flux_query = query_template
     
     # Log the query before execution
     logger.debug(f"Executing flux query: {flux_query}")
@@ -464,13 +457,10 @@ def main():
             daily_records = execute_query(
                 client=client,
                 query_template=energy_query,
-                start_time=energy_start_time,
-                end_time=energy_end_time,
-                bucket=bucket
             )
             logger.info(" Successfully retrieved daily energy data")
             
-            if not  daily_records:
+            if not daily_records:
                 logger.warning("No solar data found")
             else:
                 # Process data
