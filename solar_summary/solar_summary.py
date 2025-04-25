@@ -219,6 +219,7 @@ def process_solar_data(daily_records: List[Dict[str, Any]], config) -> Dict[str,
         timestamp = record["_time"]
         entity_id = record["entity_id"]
 
+        logger.info(f"Processing daily record: {entity_id} at {timestamp} with energy {energy}")
         
         # Convert timestamp if it's a string
         if isinstance(timestamp, str):
