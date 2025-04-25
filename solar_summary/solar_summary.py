@@ -464,7 +464,7 @@ def main():
                 logger.warning("No solar data found")
             else:
                 # Process data
-                processed_data = process_solar_data(current_records, daily_records, config)
+                processed_data = process_solar_data(daily_records, config)
                 
                 # Send to webhook
                 success = send_to_webhook(webhook_url, processed_data)
