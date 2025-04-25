@@ -107,9 +107,7 @@
     <script type="text/javascript">
         // Empty data arrays to be filled in later
         var gridData = {{str_bellmore_grid_power}};
-        var loadData = {{str_bellmore_load_power}};
         var solarData = {{str_bellmore_solar_power}};
-        var batteryData = [];
 
         // recommended configs to achieve the e-ink friendly aesthetic
         var createChart = function() {
@@ -117,9 +115,7 @@
             "solar-chart",
             [
                 {name: "Grid Power", data: gridData, dashStyle: "dot"},
-                {name: "House Load", data: loadData, dashStyle: "dash"},
                 {name: "Solar Generation", data: solarData, dashStyle: "solid"},
-                {name: "Battery Power", data: batteryData, dashStyle: "dashdot"}
             ],
             {
                 adapter: "highcharts",
@@ -146,7 +142,7 @@
                     plotOptions: {
                         series: {
                             animation: false,
-                            lineWidth: 1,
+                            lineWidth: 2,
                             marker: {
                                 enabled: false
                             }

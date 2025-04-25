@@ -22,7 +22,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Configure logging
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s [%(levelname)s] %(message)s',
     datefmt='%Y-%m-%dT%H:%M:%S%z'
 )
@@ -214,6 +214,7 @@ def process_temperature_data(records: List[Dict[str, Any]]) -> Dict[str, Any]:
         # Skip invalid temperatures
         if temp is None or temp < -50 or temp > 150:
             continue
+        temp = round(temp,1)
             
         all_temps.append(temp)
         
@@ -273,39 +274,14 @@ def process_temperature_data(records: List[Dict[str, Any]]) -> Dict[str, Any]:
     # Format data for webhook
     # Create a result with top-level keys for each sensor's data
     result = {
-        "current_timestamp": formatted_timestamp,
-        "statistics": stats,
-        "most_recent": most_recent,
-        "highcharts_options": {
-            "title": {
-                "text": "Temperature Data"
-            },
-            "xAxis": {
-                "type": "datetime",
-                "title": {
-                    "text": "Time"
-                }
-            },
-            "yAxis": {
-                "title": {
-                    "text": "Temperature (°F)"
-                }
-            },
-            "tooltip": {
-                "valueSuffix": "°F",
-                "xDateFormat": "%Y-%m-%d %H:%M:%S",
-                "shared": True,
-                "crosshairs": True
-            }
-        },
-        "display_names": display_names  # Mapping of entity_id to display names
+        "current_timestamp": formatted_timestamp
     }
     
     # Add each sensor's data as a top-level key
     for entity_id, data in sensors_data.items():
         # Regular array data
-        key_name = f"temp_data_{entity_id}"
-        result[key_name] = data
+#        key_name = f"temp_data_{entity_id}"
+#        result[key_name] = data
         
         # JavaScript-compatible string representation
         js_key_name = f"js_{entity_id}"
@@ -326,17 +302,19 @@ def send_to_webhook(url: str, data: Dict[str, Any]) -> bool:
     Returns:
         True if successful, False otherwise
     """
+    # Wrap data in merge_variables as requested
+    payload = {
+        "merge_variables": data
+    }
+    
+    # Convert datetime objects to ISO format for JSON serialization
+    json_data = json.dumps(payload, default=lambda x: x.isoformat() if isinstance(x, datetime) else str(x))
+    
+    logger.info(f"Sending data to webhook: {url}")
+    logger.info(f"Payload size: {len(json_data)} bytes")
+    logger.info(f"{json_data}")
+
     try:
-        # Wrap data in merge_variables as requested
-        payload = {
-            "merge_variables": data
-        }
-        
-        # Convert datetime objects to ISO format for JSON serialization
-        json_data = json.dumps(payload, default=lambda x: x.isoformat() if isinstance(x, datetime) else str(x))
-        
-        logger.info(f"Sending data to webhook: {url}")
-        logger.debug(f"Payload size: {len(json_data)} bytes")
         
         response = requests.post(
             url,
@@ -441,6 +419,7 @@ def main():
             # Wait before retrying to avoid rapid error loops
             logger.info("Waiting 60 seconds before retrying...")
             time.sleep(60)
+
 
 if __name__ == "__main__":
     sys.exit(main())

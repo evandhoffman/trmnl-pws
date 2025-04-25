@@ -228,6 +228,8 @@ def process_solar_data(current_records: List[Dict[str, Any]], daily_records: Lis
 
         if not power:
             continue
+
+        power = round(float(power),1)
         
         # Convert timestamp if it's a string
         if isinstance(timestamp, str):
@@ -257,8 +259,9 @@ def process_solar_data(current_records: List[Dict[str, Any]], daily_records: Lis
     # Sort data by timestamp for each sensor
     for entity_id in sensors_data:
         sensors_data[entity_id].sort(key=lambda x: x[0])
+        logger.info(f'Sensor {entity_id} contains {len(sensors_data[entity_id])} items')
     
-    # Process daily energy data
+    # Process daily energy data (kwh)
     daily_energy_data = 0
     for record in daily_records:
         if "_value" not in record or "_time" not in record:
@@ -319,54 +322,6 @@ def process_solar_data(current_records: List[Dict[str, Any]], daily_records: Lis
     # Format data for webhook
     result = {
         "current_timestamp": formatted_timestamp,
-        "most_recent": most_recent,
-        "highcharts_options": {
-            "power_chart": {
-                "title": {
-                    "text": power_chart_title
-                },
-                "xAxis": {
-                    "type": "datetime",
-                    "title": {
-                        "text": "Time"
-                    }
-                },
-                "yAxis": {
-                    "title": {
-                        "text": f"Power ({power_chart_units})"
-                    }
-                },
-                "tooltip": {
-                    "valueSuffix": f" {power_chart_units}",
-                    "xDateFormat": "%Y-%m-%d %H:%M:%S",
-                    "shared": True,
-                    "crosshairs": True
-                }
-            },
-            "energy_chart": {
-                "title": {
-                    "text": energy_chart_title
-                },
-                "xAxis": {
-                    "type": "datetime",
-                    "title": {
-                        "text": "Date"
-                    }
-                },
-                "yAxis": {
-                    "title": {
-                        "text": f"Energy ({energy_chart_units})"
-                    }
-                },
-                "tooltip": {
-                    "valueSuffix": f" {energy_chart_units}",
-                    "xDateFormat": "%Y-%m-%d",
-                    "shared": True,
-                    "crosshairs": True
-                }
-            }
-        },
-        "display_names": display_names
     }
     
     # Add each sensor's power data as stringified arrays only
@@ -393,18 +348,28 @@ def send_to_webhook(url: str, data: Dict[str, Any]) -> bool:
     Returns:
         True if successful, False otherwise
     """
+
+    payload = {
+        "merge_variables": data
+    }
+    
+    # Convert datetime objects to ISO format for JSON serialization
+    json_data = json.dumps(payload, default=lambda x: x.isoformat() if isinstance(x, datetime) else str(x))
+    
+    logger.info(f"Sending data to webhook: {url[:40]}...")
+    payload_size = len(json_data)
+    logger.debug(f"JSON: {json.dumps(payload, indent=2)}")
+   
+    max_payload_size_bytes = 4000
+
+    if payload_size > max_payload_size_bytes:
+        logger.error(f"*** Payload size: {payload_size} bytes, max is {max_payload_size_bytes} bytes ***")
+        return False
+    else:
+        logger.info(f"Payload size: {payload_size} bytes")
+
     try:
-        # Wrap data in merge_variables as requested
-        payload = {
-            "merge_variables": data
-        }
-        
-        # Convert datetime objects to ISO format for JSON serialization
-        json_data = json.dumps(payload, default=lambda x: x.isoformat() if isinstance(x, datetime) else str(x))
-        
-        logger.info(f"Sending data to webhook: {url}")
-        logger.debug(f"Payload size: {len(json_data)} bytes")
-        
+
         response = requests.post(
             url,
             data=json_data,
