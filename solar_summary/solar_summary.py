@@ -192,7 +192,7 @@ def execute_query(
     logger.info(f"Cleaned {len(cleaned_records)} records from InfluxDB response")
     return cleaned_records
 
-def process_solar_data(current_records: List[Dict[str, Any]], daily_records: List[Dict[str, Any]], config) -> Dict[str, Any]:
+def process_solar_data(daily_records: List[Dict[str, Any]], config) -> Dict[str, Any]:
     """
     Process solar power data without statistical calculations
     
@@ -215,51 +215,6 @@ def process_solar_data(current_records: List[Dict[str, Any]], daily_records: Lis
     
     # Extract relevant fields and organize by sensor
     sensors_data = {}
-    all_power_values = []
-    
-    # Process current power data
-    for record in current_records:
-        if "_value" not in record or "entity_id" not in record or "_time" not in record:
-            continue
-            
-        entity_id = record["entity_id"]
-        power = record["_value"]
-        timestamp = record["_time"]
-
-        if not power:
-            continue
-
-        power = round(float(power),1)
-        
-        # Convert timestamp if it's a string
-        if isinstance(timestamp, str):
-            try:
-                # Simple approach: strip microseconds completely
-                # Remove the decimal part and the Z, then add timezone
-                if '.' in timestamp and 'Z' in timestamp:
-                    timestamp = timestamp.split('.')[0] + '+00:00'
-                elif 'Z' in timestamp:
-                    timestamp = timestamp.replace('Z', '+00:00')
-                
-                timestamp = datetime.fromisoformat(timestamp)
-            except ValueError:
-                logger.debug(f"Could not parse timestamp: {timestamp}")
-                continue
-                            
-        # Convert timestamp to milliseconds for Highcharts
-        timestamp_ms = int(timestamp.timestamp() * 1000)
-        
-        # Add to sensor data - just timestamp and value
-        if entity_id not in sensors_data:
-            sensors_data[entity_id] = []
-            
-        # Add data point in Highcharts format [timestamp_ms, value]
-        sensors_data[entity_id].append([timestamp_ms, power])
-        
-    # Sort data by timestamp for each sensor
-    for entity_id in sensors_data:
-        sensors_data[entity_id].sort(key=lambda x: x[0])
-        logger.info(f'Sensor {entity_id} contains {len(sensors_data[entity_id])} items')
     
     # Process daily energy data (kwh)
     daily_energy_data = 0
@@ -288,7 +243,7 @@ def process_solar_data(current_records: List[Dict[str, Any]], daily_records: Lis
         
         # Add only timestamp and value for Highcharts
         #daily_energy_data.append([timestamp_ms, energy])
-        daily_energy_data = round(energy,1)
+        daily_energy_data = round(energy, 1)
     
     # Sort daily energy data by timestamp
     #daily_energy_data.sort(key=lambda x: x[0])
@@ -313,12 +268,6 @@ def process_solar_data(current_records: List[Dict[str, Any]], daily_records: Lis
     local_now = utc_now.astimezone(mytz)
     formatted_timestamp = local_now.strftime("%A, %B %-d, %-I:%M %p")
 
-    # Get chart titles and units from config
-    power_chart_title = chart_config.get('power_chart_title', 'Solar Power Data')
-    power_chart_units = chart_config.get('power_chart_units', 'kW')
-    energy_chart_title = chart_config.get('energy_chart_title', 'Daily Solar Energy')
-    energy_chart_units = chart_config.get('energy_chart_units', 'kWh')
-
     # Format data for webhook
     result = {
         "current_timestamp": formatted_timestamp,
@@ -336,6 +285,7 @@ def process_solar_data(current_records: List[Dict[str, Any]], daily_records: Lis
     result["str_daily_energy"] = str(daily_energy_data).replace("'", "")
     
     return result
+
 
 def send_to_webhook(url: str, data: Dict[str, Any]) -> bool:
     """
@@ -485,7 +435,6 @@ def main():
         
         # Get query templates
         queries_config = config.get('queries', {})
-        power_query = queries_config.get('power_query')
         energy_query = queries_config.get('energy_query')
         
         # Get polling interval
@@ -508,21 +457,8 @@ def main():
         try:
             # Calculate time range for current power data
             power_start_time, power_end_time = calculate_time_range(hours_back)
-            logger.info(f"Querying current power data for the past {hours_back} hours ({power_start_time} to {power_end_time})")
+            logger.info(f"Querying InfluxDB")
             
-            # Calculate time range for daily energy data
-            energy_start_time, energy_end_time = calculate_daily_range(days_back)
-            logger.info(f"Querying daily energy data for the past {days_back} days ({energy_start_time} to {energy_end_time})")
-            
-            # Execute power query
-            current_records = execute_query(
-                client=client,
-                query_template=power_query,
-                start_time=power_start_time,
-                end_time=power_end_time,
-                bucket=bucket
-            )
-            logger.info(" Successfully retrieved current power data")
             
             # Execute energy query
             daily_records = execute_query(
@@ -534,7 +470,7 @@ def main():
             )
             logger.info(" Successfully retrieved daily energy data")
             
-            if not current_records and not daily_records:
+            if not  daily_records:
                 logger.warning("No solar data found")
             else:
                 # Process data
