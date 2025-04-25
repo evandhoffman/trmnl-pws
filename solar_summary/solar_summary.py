@@ -239,6 +239,8 @@ def process_solar_data(daily_records: List[Dict[str, Any]], config) -> Dict[str,
         
         # Add only timestamp and value for Highcharts
         #daily_energy_data.append([timestamp_ms, energy])
+        if timestamp_ms not in daily_energy_data:
+            daily_energy_data[timestamp_ms] = {}
         daily_energy_data[timestamp_ms][entity_id] = energy
     
     # Sort daily energy data by timestamp
