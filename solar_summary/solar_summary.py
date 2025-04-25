@@ -215,7 +215,7 @@ def process_solar_data(daily_records: List[Dict[str, Any]], config) -> Dict[str,
         if "_value" not in record or "_time" not in record:
             continue
             
-        energy = record["_value"]
+        energy = 0.0 + record["_value"]
         timestamp = record["_time"]
         entity_id = record["entity_id"]
 
