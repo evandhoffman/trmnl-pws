@@ -1,0 +1,109 @@
+<!-- import Highcharts libraries -->
+<script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="https://code.highcharts.com/highcharts-more.js"></script>
+<script src="https://code.highcharts.com/modules/pattern-fill.js"></script>
+
+<div class="view view--full">
+  <div class="layout layout--col gap--none">
+    <!-- Date Row -->
+    <div class="grid grid--cols-8 mb--3">
+      <div class="flex flex--col items--center">
+        <span class="description text--center"></span>
+      </div>        
+      <div class="flex flex--col items--center"><span class="description">{{date_0}}</span></div>
+      <div class="flex flex--col items--center"><span class="description">{{date_1}}</span></div>
+      <div class="flex flex--col items--center"><span class="description">{{date_2}}</span></div>
+      <div class="flex flex--col items--center"><span class="description">{{date_3}}</span></div>
+      <div class="flex flex--col items--center"><span class="description">{{date_4}}er</span></div>
+      <div class="flex flex--col items--center"><span class="description">{{date_5}}</span></div>
+      <div class="flex flex--col items--center"><span class="description">{{date_6}}</span></div>
+    </div>
+
+    <div class="w-full b-h-gray-5"></div>
+
+    <!-- Grid Draw Row -->
+    <div class="grid grid--cols-8 mb--2">
+      <div class="flex flex--row flex--center-x"><span class="description">Grid</span></div>
+      <div class="flex flex--row flex--center-x"><div id="grid_0" class="h--24"></div></div>
+      <div class="flex flex--row flex--center-x"><div id="grid_1" class="h--24"></div></div>
+      <div class="flex flex--row flex--center-x"><div id="grid_2" class="h--24"></div></div>
+      <div class="flex flex--row flex--center-x"><div id="grid_3" class="h--24"></div></div>
+      <div class="flex flex--row flex--center-x"><div id="grid_4" class="h--24"></div></div>
+      <div class="flex flex--row flex--center-x"><div id="grid_5" class="h--24"></div></div>
+      <div class="flex flex--row flex--center-x"><div id="grid_6" class="h--24"></div></div>
+    </div>
+
+    <!-- House Load Row -->
+    <div class="grid grid--cols-8 mb--2">
+      <div class="flex flex--row flex--center-x"><span class="description">Load</span></div>
+      <div class="flex flex--row flex--center-x"><div id="load_0" class="h--24"></div></div>
+      <div class="flex flex--row flex--center-x"><div id="load_1" class="h--24"></div></div>
+      <div class="flex flex--row flex--center-x"><div id="load_2" class="h--24"></div></div>
+      <div class="flex flex--row flex--center-x"><div id="load_3" class="h--24"></div></div>
+      <div class="flex flex--row flex--center-x"><div id="load_4" class="h--24"></div></div>
+      <div class="flex flex--row flex--center-x"><div id="load_5" class="h--24"></div></div>
+      <div class="flex flex--row flex--center-x"><div id="load_6" class="h--24"></div></div>
+    </div>
+
+    <!-- Solar Generation Row -->
+    <div class="grid grid--cols-8">
+      <div class="flex flex--row flex--center-x"><span class="description">Solar</span></div>
+      <div class="flex flex--row flex--center-x"><div id="solar_0" class="h--24"></div></div>
+      <div class="flex flex--row flex--center-x"><div id="solar_1" class="h--24"></div></div>
+      <div class="flex flex--row flex--center-x"><div id="solar_2" class="h--24"></div></div>
+      <div class="flex flex--row flex--center-x"><div id="solar_3" class="h--24"></div></div>
+      <div class="flex flex--row flex--center-x"><div id="solar_4" class="h--24"></div></div>
+      <div class="flex flex--row flex--center-x"><div id="solar_5" class="h--24"></div></div>
+      <div class="flex flex--row flex--center-x"><div id="solar_6" class="h--24"></div></div>
+    </div>
+  </div>
+</div>
+
+<script type="text/javascript">
+  // Numeric arrays from merge variables
+  var gridVals  = [{{grid_0}}, {{grid_1}}, {{grid_2}}, {{grid_3}}, {{grid_4}}, {{grid_5}}, {{grid_6}}];
+  var loadVals  = [{{load_0}}, {{load_1}}, {{load_2}}, {{load_3}}, {{load_4}}, {{load_5}}, {{load_6}}];
+  var solarVals = [{{solar_0}}, {{solar_1}}, {{solar_2}}, {{solar_3}}, {{solar_4}}, {{solar_5}}, {{solar_6}}];
+
+  // Determine max scale
+  var maxVal = Math.max.apply(null, gridVals.concat(loadVals).concat(solarVals));
+
+  // Gauge rendering function
+  function createGauge(score, containerId, opts) {
+    if (!opts) opts = {};
+    Highcharts.chart(containerId, {
+      chart: { type: "gauge", height: opts.height || "80%" },
+      title: { text: opts.title || null },
+      pane: { startAngle: -150, endAngle: 150, background: { backgroundColor: "transparent", borderWidth: 0 } },
+      plotOptions: { gauge: { animation: false, pivot: { backgroundColor: "transparent" }, dial: { backgroundColor: "transparent", baseWidth: 0 } } },
+      yAxis: {
+        min: (opts.yAxis && opts.yAxis.min != null) ? opts.yAxis.min : 0,
+        max: (opts.yAxis && opts.yAxis.max != null) ? opts.yAxis.max : maxVal,
+        minorTickInterval: 0,
+        tickWidth: 0,
+        lineWidth: 0,
+        labels: Object.assign({ style: { fontSize: "16px" } }, opts.labels),
+        plotBands: [
+          { from: 0, to: score, color: { pattern: { image: "https://usetrmnl.com/images/grayscale/gray-2.png", width: 12, height: 12 } }, innerRadius: "82%", borderRadius: "50%" },
+          { from: score, to: maxVal, color: { pattern: { image: "https://usetrmnl.com/images/grayscale/gray-5.png", width: 12, height: 12 } }, innerRadius: "82%", borderRadius: "50%" }
+        ]
+      },
+      series: [{ data: [score], dataLabels: { enabled: true, format: "{y:.1f} kWh", borderWidth: 0, style: { fontSize: "14px" } } }],
+      credits: { enabled: false }
+    });
+  }
+
+  // Options for small daily gauges
+  var smallOpts = {
+    labels: { enabled: false },
+    series: { fontSize: "16px", fontWeight: "400", fontFamily: "NicoClean" },
+    yAxis: { title: null, min: 0, max: maxVal }
+  };
+
+  // Render 7×3 gauges
+  for (var i = 0; i < 7; i++) {
+    createGauge(gridVals[i], "grid_" + i, smallOpts);
+    createGauge(loadVals[i], "load_" + i, smallOpts);
+    createGauge(solarVals[i], "solar_" + i, smallOpts);
+  }
+</script>
