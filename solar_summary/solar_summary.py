@@ -146,9 +146,9 @@ def process_solar_data(
     slots = []
     for d in sorted_dates:
         if d == today_date:
-            label = d.strftime("%a, %d %b") + f" ({now_ny.strftime('%-I:%M %p')})"
+            label = d.strftime("%a %-m/%-d") + f" ({now_ny.strftime('%-I:%M %p')})"
         else:
-            label = d.strftime("%a, %d %b")
+            label = d.strftime("%a %-m/%-d")
         slots.append({'date': label, 'grid': 0.0, 'load': 0.0, 'solar': 0.0, 'date_obj': d})
 
     # Assign values
