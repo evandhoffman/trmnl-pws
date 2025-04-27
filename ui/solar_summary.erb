@@ -1,5 +1,7 @@
 <!-- import Highcharts libraries -->
 <script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="https://code.highcharts.com/highcharts-more.js"></script>
+<script src="https://code.highcharts.com/modules/pattern-fill.js"></script>
 
 <div class="view view--full">
   <div class="layout layout--col gap--none">
@@ -43,6 +45,7 @@
         grouping: true,
         pointPadding: 0.1,
         borderWidth: 1,
+        borderColor: "#000000",    // ← border color for each bar
         dataLabels: {
           enabled: true,
           inside: false,
@@ -57,8 +60,24 @@
       }
     },
     series: [
-      { name: "Grid",  data: gridData,  color: "#dddddd" },
-      { name: "Load",  data: loadData,  color: "#999999" },
+      { name: "Grid",  data: gridData,  
+       color: {
+         pattern: {
+              image: "https://usetrmnl.com/images/grayscale/gray-5.png",
+              width: 12,
+              height: 12
+            }
+       },
+      },
+      { name: "Load",  data: loadData, 
+       color: {
+         pattern: {
+              image: "https://usetrmnl.com/images/grayscale/gray-4.png",
+              width: 12,
+              height: 12
+            }
+       },
+      },
       { name: "Solar", data: solarData, color: "#000000" }
     ],
     credits: { enabled: false },
