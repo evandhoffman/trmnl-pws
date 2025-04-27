@@ -73,18 +73,18 @@ class InfluxDBClient:
             values = line.split(',')
             if len(values) != len(headers):
                 continue
-            record = {}
+            rec = {}
             for j, header in enumerate(headers):
                 val = values[j]
                 if val.replace('.', '', 1).isdigit():
-                    record[header] = float(val)
+                    rec[header] = float(val)
                 elif val.lower() in ('true', 'false'):
-                    record[header] = val.lower() == 'true'
+                    rec[header] = val.lower() == 'true'
                 elif val == '':
-                    record[header] = None
+                    rec[header] = None
                 else:
-                    record[header] = val
-            records.append(record)
+                    rec[header] = val
+            records.append(rec)
         logger.info(f"Parsed {len(records)} records from InfluxDB response")
         return records
 
@@ -112,54 +112,58 @@ def process_solar_data(
     config: Dict[str, Any]
 ) -> Dict[str, Any]:
     """
-    Build a day_0…day_6 map with {date, solar, load, grid} for each of the past 7 days.
+    Build merge_variables for a 7-day grouped column chart:
+      - str_categories: ["Fri, 25 Apr", ..., "Sat, 19 Apr"]
+      - str_grid:       [1.2, 2.3, ...]
+      - str_load:       [302.1, 310.4, ...]
+      - str_solar:      [31.2, 29.5, ...]
     """
+    import json
     # Timezone and midnight in NY
     tz = pytz.timezone(config.get('general', {}).get('timezone', 'America/New_York'))
     now_ny = datetime.now(timezone.utc).astimezone(tz)
     midnight = now_ny.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    # Prepare 7-day slots
-    result: Dict[str, Any] = {}
+    # Initialize slots for 7 days
+    slots = []
     for i in range(7):
         day = midnight - timedelta(days=i)
-        key = f"day_{i}"
-        result[key] = {
-            "date": day.strftime("%a, %m/%d"),
-            "solar": 0.0,
-            "load": 0.0,
-            "grid": 0.0
-        }
+        slots.append({
+            'date':  day.strftime("%a, %d %b"),
+            'grid':  None,
+            'load':  None,
+            'solar': None
+        })
 
-    # Aggregate records into slots
+    # Direct assignment from query results (one record per sensor/day)
     for rec in daily_records:
-        ts = rec["_time"]
+        ts = rec['_time']
         if isinstance(ts, str) and ts.endswith('Z'):
             ts = ts.replace('Z', '+00:00')
         dt = datetime.fromisoformat(ts).astimezone(tz)
-        delta = midnight - dt.replace(hour=0, minute=0, second=0, microsecond=0)
-        days_back = int(delta.total_seconds() // 86400)
+        days_back = (midnight - dt.replace(hour=0, minute=0, second=0, microsecond=0)).days
         if 0 <= days_back < 7:
-            slot = result[f"day_{days_back}"]
-            ent = rec["entity_id"]
-            val = round(float(rec["_value"]), 2)
-            if "solar" in ent:
-                slot["solar"] = val
-            elif "load" in ent:
-                slot["load"] = val
-            elif "grid" in ent:
-                slot["grid"] = val
+            slot = slots[days_back]
+            # Cast to float before rounding to avoid type errors
+            val  = round(float(rec['_value']), 2)
+            ent  = rec.get('entity_id', '')
+            if 'grid' in ent:
+                slot['grid'] = val
+            elif 'load' in ent:
+                slot['load'] = val
+            elif 'solar' in ent:
+                slot['solar'] = val
 
-    merge = {}
-    for i in range(7):
-        d = result[f"day_{i}"]
-        merge[f"date_{i}"]  = d["date"]
-        merge[f"solar_{i}"] = d["solar"]
-        merge[f"load_{i}"]  = d["load"]
-        merge[f"grid_{i}"]  = d["grid"]
+    # Reverse slots to oldest first
+    slots.reverse()
 
-    return merge
-
+    # Build merge_variables
+    return {
+        'str_categories': json.dumps([d['date']  for d in slots]),
+        'str_grid':       json.dumps([d['grid']  for d in slots]),
+        'str_load':       json.dumps([d['load']  for d in slots]),
+        'str_solar':      json.dumps([d['solar'] for d in slots]),
+    }
 
 def send_to_webhook(url: str, data: Dict[str, Any]) -> bool:
     """
@@ -167,7 +171,7 @@ def send_to_webhook(url: str, data: Dict[str, Any]) -> bool:
     """
     payload = {"merge_variables": data}
     json_data = json.dumps(payload, default=lambda x: x.isoformat() if isinstance(x, datetime) else str(x))
-    logger.info(f"Sending data to webhook: {url[:40]}, payload is {json_data}...")
+    logger.info(f"Sending data to webhook: {url[:40]}...")
     if len(json_data) > 4000:
         logger.error(f"Payload too large: {len(json_data)} bytes")
         return False
