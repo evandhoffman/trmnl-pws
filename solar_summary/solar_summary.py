@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
 InfluxDB to Webhook Solar Power Data Sender
-Queries solar power data directly from InfluxDB and submits to a webhook.
-Runs continuously with configuration from a config file.
+Queries solar power data directly from InfluxDB and submits to a webhook
+Runs continuously with configuration from a config file
 """
 
 import os
@@ -88,6 +88,7 @@ class InfluxDBClient:
         logger.info(f"Parsed {len(records)} records from InfluxDB response")
         return records
 
+
 def execute_query(
     client: InfluxDBClient,
     query_template: str,
@@ -107,68 +108,83 @@ def execute_query(
     logger.info(f"Cleaned {len(cleaned)} records from InfluxDB response")
     return cleaned
 
+
 def process_solar_data(
     daily_records: List[Dict[str, Any]],
     config: Dict[str, Any]
 ) -> Dict[str, Any]:
     """
-    Build merge_variables for an 8-day grouped column chart:
-      days 7 -> 0 back from today at NY midnight,
-      labeling today with current time.
+    Build merge_variables dynamically for N days of data.
+    - str_categories: ["Mon, 21 Apr", ..., "Sun, 27 Apr (10:04 AM)"]
+    - str_grid, str_load, str_solar arrays of floats
     """
     tz = pytz.timezone(config.get('general', {}).get('timezone', 'America/New_York'))
     now_ny = datetime.now(timezone.utc).astimezone(tz)
     midnight = now_ny.replace(hour=0, minute=0, second=0, microsecond=0)
     today_date = midnight.date()
 
-    # Prepare slots for days_back=7..0
-    slots = []
-    for days_back in range(7, -1, -1):
-        day_date = today_date - timedelta(days=days_back)
-        if days_back == 0:
-            label = day_date.strftime("%a, %d %b") + f" ({now_ny.strftime('%-I:%M %p')})"
-        else:
-            label = day_date.strftime("%a, %d %b")
-        slots.append({'date': label, 'grid': 0.0, 'load': 0.0, 'solar': 0.0})
-
-    # Map each record into the correct slot
+    # Determine unique mapping dates from records
+    dates = set()
     for rec in daily_records:
         ts = rec['_time']
         if isinstance(ts, str) and ts.endswith('Z'):
             ts = ts.replace('Z', '+00:00')
         dt = datetime.fromisoformat(ts).astimezone(tz)
-
-        # If timestamp is exactly midnight local time, assign to previous day
+        # midnight timestamp → previous day
         if dt.time() == dt_time(0, 0):
-            mapping_date = (dt - timedelta(days=1)).date()
+            map_date = (dt - timedelta(days=1)).date()
         else:
-            mapping_date = dt.date()
+            map_date = dt.date()
+        dates.add(map_date)
+    # Always include today
+    dates.add(today_date)
 
-        days_back = (today_date - mapping_date).days
-        if 0 <= days_back <= 7:
-            slot = slots[7 - days_back]
-            val = round(float(rec['_value']), 2)
-            ent = rec.get('entity_id', '')
-            if 'grid' in ent:
-                slot['grid'] = val
-            elif 'load' in ent:
-                slot['load'] = val
-            elif 'solar' in ent:
-                slot['solar'] = val
+    # Sort ascending
+    sorted_dates = sorted(dates)
 
+    # Prepare slots
+    slots = []
+    for d in sorted_dates:
+        if d == today_date:
+            label = d.strftime("%a, %d %b") + f" ({now_ny.strftime('%-I:%M %p')})"
+        else:
+            label = d.strftime("%a, %d %b")
+        slots.append({'date': label, 'grid': 0.0, 'load': 0.0, 'solar': 0.0, 'date_obj': d})
+
+    # Assign values
+    for rec in daily_records:
+        ts = rec['_time']
+        if isinstance(ts, str) and ts.endswith('Z'):
+            ts = ts.replace('Z', '+00:00')
+        dt = datetime.fromisoformat(ts).astimezone(tz)
+        if dt.time() == dt_time(0, 0):
+            map_date = (dt - timedelta(days=1)).date()
+        else:
+            map_date = dt.date()
+        for slot in slots:
+            if slot['date_obj'] == map_date:
+                val = round(float(rec['_value']), 2)
+                ent = rec.get('entity_id', '')
+                if 'grid' in ent:
+                    slot['grid'] = val
+                elif 'load' in ent:
+                    slot['load'] = val
+                elif 'solar' in ent:
+                    slot['solar'] = val
+                break
+
+    # Build merge_variables
     merge = {
-        'str_categories': json.dumps([d['date']  for d in slots]),
-        'str_grid':       json.dumps([d['grid']  for d in slots]),
-        'str_load':       json.dumps([d['load']  for d in slots]),
-        'str_solar':      json.dumps([d['solar'] for d in slots]),
+        'str_categories': json.dumps([s['date'] for s in slots]),
+        'str_grid':       json.dumps([s['grid'] for s in slots]),
+        'str_load':       json.dumps([s['load'] for s in slots]),
+        'str_solar':      json.dumps([s['solar'] for s in slots]),
     }
     logger.info(f"Payload to webhook: {merge}")
     return merge
 
+
 def send_to_webhook(url: str, data: Dict[str, Any]) -> bool:
-    """
-    Send data to webhook.
-    """
     payload = {"merge_variables": data}
     json_data = json.dumps(payload, default=lambda x: x.isoformat() if isinstance(x, datetime) else str(x))
     logger.info(f"Sending data to webhook: {url[:40]}...")
@@ -192,6 +208,7 @@ def send_to_webhook(url: str, data: Dict[str, Any]) -> bool:
         logger.error(f"Error sending webhook: {e}")
         return False
 
+
 def load_config(config_file: str) -> Dict[str, Any]:
     if not os.path.exists(config_file):
         raise FileNotFoundError(f"Configuration file not found: {config_file}")
@@ -201,6 +218,7 @@ def load_config(config_file: str) -> Dict[str, Any]:
         if section not in cfg:
             raise ValueError(f"Missing configuration section: {section}")
     return cfg
+
 
 def main():
     parser = argparse.ArgumentParser(description='InfluxDB to Webhook Solar Data Sender')
@@ -245,3 +263,4 @@ def main():
 
 if __name__ == "__main__":
     sys.exit(main())
+
