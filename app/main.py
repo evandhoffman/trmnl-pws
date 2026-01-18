@@ -11,6 +11,8 @@ from app.config import load_config, load_secrets
 from app.influx_client import create_client
 from app.webhook import post_to_webhook
 from app.state import (
+    load_state,
+    save_state,
     should_update,
     record_update,
     seconds_since_last_update,
@@ -128,9 +130,15 @@ def main():
 
         # Initialize webhook timestamps for all plugins on startup
         logger.info("Initializing webhook state...")
+        state = load_state()
+        state_modified = False
         for plugin in plugins:
             webhook_id = plugin.get_webhook_id()
-            ensure_webhook_initialized(webhook_id)
+            if ensure_webhook_initialized(state, webhook_id):
+                state_modified = True
+        
+        if state_modified:
+            save_state(state)
 
         # Get configuration
         poll_interval = config.get("general", {}).get("poll_interval", 300)
@@ -144,6 +152,10 @@ def main():
         while not shutdown_requested:
             iteration += 1
             logger.info(f"=== Starting iteration {iteration} ===")
+            
+            # Load state once per iteration
+            state = load_state()
+            iteration_state_modified = False
 
             for plugin in plugins:
                 if shutdown_requested:
@@ -154,9 +166,9 @@ def main():
                     webhook_id = plugin.get_webhook_id()
 
                     # Check if enough time has elapsed since last update
-                    if not should_update(webhook_id, poll_interval):
-                        elapsed = seconds_since_last_update(webhook_id)
-                        failure_count = get_failure_count(webhook_id)
+                    if not should_update(state, webhook_id, poll_interval):
+                        elapsed = seconds_since_last_update(state, webhook_id)
+                        failure_count = get_failure_count(state, webhook_id)
                         required_interval = calculate_backoff(
                             failure_count, poll_interval
                         )
@@ -195,21 +207,28 @@ def main():
                     # Always record the attempt timestamp
                     # For rate_limited errors, this enables exponential backoff
                     if status == "success":
-                        record_update(webhook_id, success=True)
+                        record_update(state, webhook_id, success=True)
+                        iteration_state_modified = True
                         logger.info(f"✓ {plugin.plugin_name} completed successfully")
                     elif status == "rate_limited":
-                        record_update(webhook_id, success=False)
+                        record_update(state, webhook_id, success=False)
+                        iteration_state_modified = True
                         logger.warning(
                             f"✗ {plugin.plugin_name} rate limited (will use backoff)"
                         )
                     else:
-                        record_update(webhook_id, success=False)
+                        record_update(state, webhook_id, success=False)
+                        iteration_state_modified = True
                         logger.warning(f"✗ {plugin.plugin_name} failed to post webhook")
 
                 except Exception as e:
                     logger.error(
                         f"✗ {plugin.plugin_name} failed with error: {e}", exc_info=True
                     )
+            
+            # Save state once at end of iteration if modified
+            if iteration_state_modified:
+                save_state(state)
 
             if shutdown_requested:
                 break

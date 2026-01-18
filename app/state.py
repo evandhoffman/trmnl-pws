@@ -53,39 +53,42 @@ def save_state(state):
         logger.error(f"Failed to save state file: {e}")
 
 
-def ensure_webhook_initialized(webhook_id):
+def ensure_webhook_initialized(state, webhook_id):
     """
-    Ensure a webhook has a timestamp in the state file.
+    Ensure a webhook has a timestamp in the state.
     If missing, initialize it with the current time.
 
     Args:
+        state: Current state dict (will be modified in place)
         webhook_id: The webhook ID to check/initialize
+        
+    Returns:
+        bool: True if state was modified, False otherwise
     """
-    state = load_state()
-
     if webhook_id not in state:
         now = datetime.utcnow()
         timestamp_str = now.isoformat()
         state[webhook_id] = {"timestamp": timestamp_str, "failure_count": 0}
-        save_state(state)
         logger.info(
             f"Initialized webhook {webhook_id[:8]}... with timestamp {timestamp_str} UTC"
         )
+        return True
     else:
         logger.debug(f"Webhook {webhook_id[:8]}... already has timestamp in state")
+        return False
 
 
-def get_last_update_time(webhook_id):
+def get_last_update_time(state, webhook_id):
     """
     Get the last update time for a specific webhook.
 
     Args:
+        state: Current state dict
         webhook_id: The webhook ID to check
 
     Returns:
         datetime or None: Last update time, or None if never updated
     """
-    state = load_state()
     webhook_state = state.get(webhook_id)
 
     if webhook_state:
@@ -111,15 +114,15 @@ def get_last_update_time(webhook_id):
     return None
 
 
-def record_update(webhook_id, success=True):
+def record_update(state, webhook_id, success=True):
     """
     Record that a webhook was just updated.
 
     Args:
+        state: Current state dict (will be modified in place)
         webhook_id: The webhook ID that was updated
         success: Whether the update was successful (resets failure count)
     """
-    state = load_state()
     now = datetime.utcnow()
     timestamp_str = now.isoformat()
 
@@ -139,7 +142,6 @@ def record_update(webhook_id, success=True):
         failure_count += 1
 
     state[webhook_id] = {"timestamp": timestamp_str, "failure_count": failure_count}
-    save_state(state)
 
     if success:
         logger.info(
@@ -153,17 +155,18 @@ def record_update(webhook_id, success=True):
         )
 
 
-def seconds_since_last_update(webhook_id):
+def seconds_since_last_update(state, webhook_id):
     """
     Calculate how many seconds have elapsed since the last update.
 
     Args:
+        state: Current state dict
         webhook_id: The webhook ID to check
 
     Returns:
         float or None: Seconds elapsed, or None if never updated
     """
-    last_update = get_last_update_time(webhook_id)
+    last_update = get_last_update_time(state, webhook_id)
 
     if last_update is None:
         return None
@@ -193,17 +196,17 @@ def calculate_backoff(failure_count, base_interval):
     return min(backoff, MAX_BACKOFF_SECONDS)
 
 
-def get_failure_count(webhook_id):
+def get_failure_count(state, webhook_id):
     """
     Get the failure count for a webhook.
 
     Args:
+        state: Current state dict
         webhook_id: The webhook ID to check
 
     Returns:
         int: Number of consecutive failures
     """
-    state = load_state()
     webhook_state = state.get(webhook_id, {})
 
     if isinstance(webhook_state, str):
@@ -213,26 +216,27 @@ def get_failure_count(webhook_id):
     return webhook_state.get("failure_count", 0)
 
 
-def should_update(webhook_id, poll_interval):
+def should_update(state, webhook_id, poll_interval):
     """
     Check if enough time has elapsed to allow an update.
     Uses exponential backoff for failed webhooks.
 
     Args:
+        state: Current state dict
         webhook_id: The webhook ID to check
         poll_interval: Base polling interval in seconds
 
     Returns:
         bool: True if update should proceed, False if too soon
     """
-    elapsed = seconds_since_last_update(webhook_id)
+    elapsed = seconds_since_last_update(state, webhook_id)
 
     if elapsed is None:
         # Never updated before
         return True
 
     # Get failure count and calculate backoff
-    failure_count = get_failure_count(webhook_id)
+    failure_count = get_failure_count(state, webhook_id)
     required_interval = calculate_backoff(failure_count, poll_interval)
 
     return elapsed >= required_interval
