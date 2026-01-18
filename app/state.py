@@ -3,12 +3,13 @@ State management for tracking last webhook update times.
 """
 import json
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-STATE_FILE = Path("last_trmnl_update.lock")
+STATE_FILE = Path(os.environ.get("STATE_LOCK_PATH", "/tmp/last_trmnl_update.lock"))
 
 
 def load_state():
@@ -19,13 +20,13 @@ def load_state():
         dict: Dictionary mapping webhook_id -> timestamp (ISO format)
     """
     if not STATE_FILE.exists():
-        logger.info("No state file found, starting fresh")
+        logger.info(f"No state file found at {STATE_FILE}, starting fresh")
         return {}
     
     try:
         with open(STATE_FILE, 'r') as f:
             state = json.load(f)
-        logger.info(f"Loaded state for {len(state)} webhook(s)")
+        logger.info(f"Loaded state for {len(state)} webhook(s) from {STATE_FILE}")
         return state
     except (json.JSONDecodeError, IOError) as e:
         logger.warning(f"Failed to load state file: {e}, starting fresh")
@@ -40,9 +41,10 @@ def save_state(state):
         state: Dictionary mapping webhook_id -> timestamp (ISO format)
     """
     try:
+        STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
         with open(STATE_FILE, 'w') as f:
             json.dump(state, f, indent=2)
-        logger.debug(f"Saved state for {len(state)} webhook(s)")
+        logger.debug(f"Saved state for {len(state)} webhook(s) to {STATE_FILE}")
     except IOError as e:
         logger.error(f"Failed to save state file: {e}")
 

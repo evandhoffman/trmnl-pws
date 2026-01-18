@@ -2,6 +2,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# Default path for persisted state lock file
+ENV STATE_LOCK_PATH=/tmp/last_trmnl_update.lock
+
 # Install tini for proper signal handling
 RUN apt-get update && apt-get install -y tini && rm -rf /var/lib/apt/lists/*
 
