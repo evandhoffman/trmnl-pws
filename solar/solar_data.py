@@ -360,7 +360,7 @@ def send_to_webhook(url: str, data: Dict[str, Any]) -> bool:
     payload_size = len(json_data)
     logger.debug(f"JSON: {json.dumps(payload, indent=2)}")
    
-    max_payload_size_bytes = 4000
+    max_payload_size_bytes = 2048
 
     if payload_size > max_payload_size_bytes:
         logger.error(f"*** Payload size: {payload_size} bytes, max is {max_payload_size_bytes} bytes ***")

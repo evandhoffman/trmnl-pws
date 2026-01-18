@@ -1,0 +1,86 @@
+<!-- import Highcharts libraries -->
+<script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="https://code.highcharts.com/highcharts-more.js"></script>
+<script src="https://code.highcharts.com/modules/pattern-fill.js"></script>
+
+<div class="view view--full">
+  <div class="layout layout--col gap--none">
+    <!-- Chart container -->
+    <div id="weekly-chart" class="w--full h--400 mt--2"></div>
+  </div>
+  <div class="title_bar">
+    <img class="image" src="/images/plugins/trmnl--render.svg" />
+    <span class="title">Solar Panel Summary</span>
+  </div>
+  
+</div>
+
+<script type="text/javascript">
+  // merged arrays from webhook
+  var categories = {{str_categories}}; // ["Mon, 21 Apr", ...]
+  var gridData   = {{str_grid}};       // [-34.29, -7.04, ...]
+  var loadData   = {{str_load}};       // [ 43.81,  52.11, ...]
+  var solarData  = {{str_solar}};      // [ 81.33,  62.71, ...]
+
+  Highcharts.chart("weekly-chart", {
+    chart: { type: "column", animation: false },
+    title: { text: null },
+    xAxis: {
+      categories: categories,
+      labels: { style: { fontSize: "14px", color: "#000" } }
+    },
+    yAxis: {
+      title: { text: "kWh" },
+      labels: { style: { fontSize: "14px", color: "#000" } },
+      gridLineDashStyle: "ShortDot",
+      gridLineColor: "#000"
+    },
+    legend: {
+      align: "center",
+      verticalAlign: "bottom",
+      itemStyle: { color: "#000", fontSize: "14px" }
+    },
+    plotOptions: {
+      column: {
+        grouping: true,
+        pointPadding: 0.1,
+        borderWidth: 1,
+        borderColor: "#000000",    // ← border color for each bar
+        dataLabels: {
+          enabled: true,
+          inside: false,
+          format: "{y:.1f}",
+          style: { fontSize: "12px", color: "#000" }
+        }
+        
+      },
+      series: {
+        animation: false,
+        pointWidth: 12
+      }
+    },
+    series: [
+      { name: "Grid",  data: gridData,  
+       color: {
+         pattern: {
+              image: "https://usetrmnl.com/images/grayscale/gray-5.png",
+              width: 12,
+              height: 12
+            }
+       },
+      },
+      { name: "Load",  data: loadData, 
+       color: {
+         pattern: {
+              image: "https://usetrmnl.com/images/grayscale/gray-4.png",
+              width: 12,
+              height: 12
+            }
+       },
+      },
+      { name: "Solar", data: solarData, color: "#000000" }
+    ],
+    credits: { enabled: false },
+    tooltip: { enabled: false }
+  });
+</script>
