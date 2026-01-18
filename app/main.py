@@ -4,11 +4,13 @@ import sys
 import time
 import signal
 import logging
+import pytz
+from datetime import datetime, timedelta
 from typing import List
 from app.config import load_config, load_secrets
 from app.influx_client import create_client
 from app.webhook import post_to_webhook
-from app.state import should_update, record_update, seconds_since_last_update
+from app.state import should_update, record_update, seconds_since_last_update, ensure_webhook_initialized
 from app.plugins import BasePlugin
 from app.plugins.weather import WeatherPlugin
 from app.plugins.solar_power import SolarPowerPlugin
@@ -117,6 +119,12 @@ def main():
         
         logger.info(f"Initialized {len(plugins)} plugin(s)")
         
+        # Initialize webhook timestamps for all plugins on startup
+        logger.info("Initializing webhook state...")
+        for plugin in plugins:
+            webhook_id = plugin.get_webhook_id()
+            ensure_webhook_initialized(webhook_id)
+        
         # Get configuration
         poll_interval = config.get('general', {}).get('poll_interval', 300)
         trmnl_plus = config.get('general', {}).get('trmnl_plus_subscriber', False)
@@ -142,10 +150,17 @@ def main():
                     if not should_update(webhook_id, poll_interval):
                         elapsed = seconds_since_last_update(webhook_id)
                         remaining = poll_interval - elapsed
+                        
+                        # Calculate expected update time
+                        timezone = config.get('general', {}).get('timezone', 'America/New_York')
+                        tz = pytz.timezone(timezone)
+                        next_update_time = datetime.now(tz) + timedelta(seconds=remaining)
+                        next_update_str = next_update_time.strftime('%H:%M')
+                        
                         logger.info(
                             f"⏸ {plugin.plugin_name} skipped - "
                             f"last update was {elapsed:.0f}s ago, "
-                            f"waiting {remaining:.0f}s more"
+                            f"next update in {remaining:.0f}s at {next_update_str}"
                         )
                         continue
                     

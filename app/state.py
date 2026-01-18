@@ -49,6 +49,26 @@ def save_state(state):
         logger.error(f"Failed to save state file: {e}")
 
 
+def ensure_webhook_initialized(webhook_id):
+    """
+    Ensure a webhook has a timestamp in the state file.
+    If missing, initialize it with the current time.
+    
+    Args:
+        webhook_id: The webhook ID to check/initialize
+    """
+    state = load_state()
+    
+    if webhook_id not in state:
+        now = datetime.utcnow()
+        timestamp_str = now.isoformat()
+        state[webhook_id] = timestamp_str
+        save_state(state)
+        logger.info(f"Initialized webhook {webhook_id[:8]}... with timestamp {timestamp_str} UTC")
+    else:
+        logger.debug(f"Webhook {webhook_id[:8]}... already has timestamp in state")
+
+
 def get_last_update_time(webhook_id):
     """
     Get the last update time for a specific webhook.
@@ -64,10 +84,14 @@ def get_last_update_time(webhook_id):
     
     if timestamp_str:
         try:
-            return datetime.fromisoformat(timestamp_str)
+            dt = datetime.fromisoformat(timestamp_str)
+            logger.info(f"Webhook {webhook_id[:8]}... last updated at {timestamp_str} UTC")
+            return dt
         except ValueError as e:
             logger.warning(f"Invalid timestamp for {webhook_id}: {e}")
             return None
+    else:
+        logger.info(f"Webhook {webhook_id[:8]}... has no previous update timestamp")
     
     return None
 
@@ -80,9 +104,11 @@ def record_update(webhook_id):
         webhook_id: The webhook ID that was updated
     """
     state = load_state()
-    state[webhook_id] = datetime.utcnow().isoformat()
+    now = datetime.utcnow()
+    timestamp_str = now.isoformat()
+    state[webhook_id] = timestamp_str
     save_state(state)
-    logger.debug(f"Recorded update for webhook {webhook_id[:8]}...")
+    logger.info(f"Recorded update for webhook {webhook_id[:8]}... at {timestamp_str}")
 
 
 def seconds_since_last_update(webhook_id):
