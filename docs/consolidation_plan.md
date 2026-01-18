@@ -141,8 +141,8 @@ general:
   trmnl_plus_subscriber: false    # Set to true for higher rate limits (30/hr) and payload size (5KB)
 
 influxdb:
-  url: https://homeassistant.local:8086
-  org: home_assistant
+  url: http://127.0.0.1:8086          # InfluxDB URL (adjust for your network)
+  org: bellmore
   bucket: home_assistant/autogen
   verify_ssl: false
 
@@ -168,7 +168,7 @@ plugins:
   solar_power:
     enabled: true
     webhook_id_key: SOLAR_POWER_WEBHOOK_ID
-    hours_back: 24
+    hours_back: 7                          # From configs/solar.yml
     entities:
       solar_power: bellmore_solar_power      # kW - current solar generation
       grid_power: bellmore_grid_power        # kW - grid import/export
@@ -192,7 +192,7 @@ plugins:
   temperature_chart:
     enabled: true
     webhook_id_key: TEMPERATURE_CHART_WEBHOOK_ID
-    hours_back: 24
+    hours_back: 12                         # From configs/temperature_chart.env
     entities:
       outdoor_temp: evan_s_pws_temperature
 ```
@@ -201,13 +201,18 @@ plugins:
 
 ```yaml
 influxdb:
-  token: "your-influxdb-token-here"
+  token: "0JdC_iPdTctUgbXQk0TzUSvYRYzmexTAq57aHsboQgvXhMz6HOhIjRkJBuPjcMtIZlxAmNFYTAirYLkYFHgBlg=="
+
+# AmbientWeather API credentials (not needed if using InfluxDB for weather)
+ambient_weather:
+  api_key: "4dd75f516e124d4a9cbead38e2826a3013c42afd3b0b4c5f85b9194b530df163"
+  application_key: "d7574e9ccac1497a8eea82cf6e8b0751de5715553b1844eb83d68d60262ab4a5"
 
 webhooks:
-  WEATHER_WEBHOOK_ID: "abc123..."
-  SOLAR_POWER_WEBHOOK_ID: "def456..."
-  SOLAR_SUMMARY_WEBHOOK_ID: "ghi789..."
-  TEMPERATURE_CHART_WEBHOOK_ID: "jkl012..."
+  WEATHER_WEBHOOK_ID: "e2037c24-42ad-4726-b810-9ef9ddb24e81"
+  SOLAR_POWER_WEBHOOK_ID: "a659844b-e66d-4b6d-a6c5-5a0aba64bb66"
+  SOLAR_SUMMARY_WEBHOOK_ID: "f28f9910-e301-45ad-a755-cbc5b787ef59"
+  TEMPERATURE_CHART_WEBHOOK_ID: "e8ba516a-a56c-4e12-8fd0-4b632c6aaf00"
 ```
 
 ### `config/secrets.example.yml` (committed)
@@ -215,6 +220,11 @@ webhooks:
 ```yaml
 influxdb:
   token: "your-influxdb-token-here"
+
+# AmbientWeather API credentials (not needed if using InfluxDB for weather data)
+ambient_weather:
+  api_key: "your-ambient-api-key"
+  application_key: "your-ambient-application-key"
 
 webhooks:
   WEATHER_WEBHOOK_ID: "your-weather-webhook-id"
