@@ -172,9 +172,11 @@ def main():
                     # Post to webhook
                     success = post_to_webhook(webhook_id, data, trmnl_plus)
                     
+                    # Always record the attempt timestamp to avoid immediate retry
+                    # This is especially important for 429 rate limit errors
+                    record_update(webhook_id)
+                    
                     if success:
-                        # Record successful update
-                        record_update(webhook_id)
                         logger.info(f"✓ {plugin.plugin_name} completed successfully")
                     else:
                         logger.warning(f"✗ {plugin.plugin_name} failed to post webhook")
