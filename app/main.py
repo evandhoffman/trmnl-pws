@@ -8,6 +8,7 @@ from typing import List
 from app.config import load_config, load_secrets
 from app.influx_client import create_client
 from app.webhook import post_to_webhook
+from app.state import should_update, record_update, seconds_since_last_update
 from app.plugins import BasePlugin
 from app.plugins.weather import WeatherPlugin
 from app.plugins.solar_power import SolarPowerPlugin
@@ -134,18 +135,31 @@ def main():
                     break
                     
                 try:
+                    # Get webhook ID first to check state
+                    webhook_id = plugin.get_webhook_id()
+                    
+                    # Check if enough time has elapsed since last update
+                    if not should_update(webhook_id, poll_interval):
+                        elapsed = seconds_since_last_update(webhook_id)
+                        remaining = poll_interval - elapsed
+                        logger.info(
+                            f"⏸ {plugin.plugin_name} skipped - "
+                            f"last update was {elapsed:.0f}s ago, "
+                            f"waiting {remaining:.0f}s more"
+                        )
+                        continue
+                    
                     logger.info(f"Processing plugin: {plugin.plugin_name}")
                     
                     # Collect data from plugin
                     data = plugin.collect_data()
                     
-                    # Get webhook ID
-                    webhook_id = plugin.get_webhook_id()
-                    
                     # Post to webhook
                     success = post_to_webhook(webhook_id, data, trmnl_plus)
                     
                     if success:
+                        # Record successful update
+                        record_update(webhook_id)
                         logger.info(f"✓ {plugin.plugin_name} completed successfully")
                     else:
                         logger.warning(f"✗ {plugin.plugin_name} failed to post webhook")

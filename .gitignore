@@ -7,6 +7,9 @@ config.yaml
 config/secrets.yml
 config/config.yml
 
+# State tracking
+last_trmnl_update.lock
+
 # Python
 __pycache__/
 *.py[cod]
