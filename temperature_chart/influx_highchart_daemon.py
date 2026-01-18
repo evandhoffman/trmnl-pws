@@ -158,13 +158,14 @@ def get_temperature_data(
         List of temperature records
     """
     # Build Flux query
+    # Query supports both old naming (evan_s_pws_temp) and new naming (evan_s_pws_temperature)
     flux_query = f"""
     from(bucket: "{bucket}")
         |> range(start: {start_time}, stop: {end_time})
         |> filter(fn: (r) => r["_measurement"] == "{measurement}")
         |> filter(fn: (r) => r["_field"] == "value")
         |> filter(fn: (r) => r["domain"] == "sensor")
-        |> filter(fn: (r) => r["entity_id"] ==  "evan_s_pws_temp")
+        |> filter(fn: (r) => r["entity_id"] == "evan_s_pws_temp" or r["entity_id"] == "evan_s_pws_temperature")
         |> aggregateWindow(
                 every: 10m,
                 fn: (tables=<-, column) => tables
@@ -263,7 +264,7 @@ def process_temperature_data(records: List[Dict[str, Any]]) -> Dict[str, Any]:
                 "temperature": last_point[1],
                 "timestamp": datetime.fromtimestamp(last_point[0] / 1000),
                 "entity_id": entity_id,
-                "display_name": display_names.get(entity_id, entity_id.replace("evan_s_pws_", "").replace("_", " ").title())
+                "display_name": display_names.get(entity_id, entity_id.replace("evan_s_pws_temp", "").replace("evan_s_pws_temperature", "").replace("_", " ").title())
             }
 
     utc_now = datetime.now(timezone.utc)
