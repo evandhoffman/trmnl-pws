@@ -8,53 +8,53 @@ from typing import Optional
 def format_timestamp_for_display(
     timestamp: datetime,
     tz_name: str = "America/New_York",
-    format_str: str = "%a %d %b, %I:%M %p"
+    format_str: str = "%a %d %b, %I:%M %p",
 ) -> str:
     """
     Format a timestamp for display in local timezone
-    
+
     Args:
         timestamp: datetime object (assumed UTC if no timezone)
         tz_name: Timezone name (e.g., 'America/New_York')
         format_str: strftime format string
-        
+
     Returns:
         Formatted timestamp string (e.g., "Sat 18 Jan, 02:15 PM")
     """
     # Ensure timestamp is timezone-aware
     if timestamp.tzinfo is None:
         timestamp = timestamp.replace(tzinfo=timezone.utc)
-    
+
     # Convert to local timezone
     local_tz = pytz.timezone(tz_name)
     local_dt = timestamp.astimezone(local_tz)
-    
+
     return local_dt.strftime(format_str)
 
 
 def format_relative_time(timestamp: datetime, now: Optional[datetime] = None) -> str:
     """
     Format a timestamp as relative time (e.g., "5 minutes ago", "2 hours ago")
-    
+
     Args:
         timestamp: datetime object to format
         now: Current time (defaults to datetime.now(timezone.utc))
-        
+
     Returns:
         Relative time string
     """
     if now is None:
         now = datetime.now(timezone.utc)
-    
+
     # Ensure both are timezone-aware
     if timestamp.tzinfo is None:
         timestamp = timestamp.replace(tzinfo=timezone.utc)
     if now.tzinfo is None:
         now = now.replace(tzinfo=timezone.utc)
-    
+
     diff = now - timestamp
     minutes = diff.total_seconds() / 60
-    
+
     if minutes < 1:
         return "just now"
     elif minutes < 60:
@@ -73,10 +73,10 @@ def format_relative_time(timestamp: datetime, now: Optional[datetime] = None) ->
 def timestamp_to_milliseconds(timestamp: datetime) -> int:
     """
     Convert a datetime to milliseconds since epoch (for Highcharts)
-    
+
     Args:
         timestamp: datetime object
-        
+
     Returns:
         Milliseconds since epoch as integer
     """

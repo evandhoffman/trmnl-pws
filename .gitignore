@@ -45,3 +45,6 @@ ENV/
 *.swo
 .DS_Store
 Thumbs.db
+configs/
+solar/config.yml
+solar_summary/config.yml
