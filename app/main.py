@@ -156,6 +156,7 @@ def main():
             # Load state once per iteration
             state = load_state()
             iteration_state_modified = False
+            min_wait_seconds = poll_interval  # Default to full poll_interval
 
             for plugin in plugins:
                 if shutdown_requested:
@@ -173,6 +174,9 @@ def main():
                             failure_count, poll_interval
                         )
                         remaining = required_interval - elapsed
+
+                        # Track minimum wait time for next iteration
+                        min_wait_seconds = min(min_wait_seconds, remaining)
 
                         # Calculate expected update time
                         timezone = config.get("general", {}).get(
@@ -233,11 +237,13 @@ def main():
             if shutdown_requested:
                 break
 
-            # Wait for next iteration
-            logger.info(f"Waiting {poll_interval} seconds before next iteration...")
+            # Wait for next iteration (use minimum wait time if backoff is active)
+            logger.info(
+                f"Waiting {min_wait_seconds:.0f} seconds before next iteration..."
+            )
 
             # Sleep in smaller increments to allow faster shutdown
-            sleep_remaining = poll_interval
+            sleep_remaining = min_wait_seconds
             while sleep_remaining > 0 and not shutdown_requested:
                 sleep_time = min(sleep_remaining, 5)
                 time.sleep(sleep_time)
