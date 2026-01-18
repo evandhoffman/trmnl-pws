@@ -8,7 +8,7 @@ services:
     volumes:
       - ./config/config.yml:/app/config/config.yml:ro
       - ./config/secrets.yml:/app/config/secrets.yml:ro
-      - ./last_trmnl_update.lock:/tmp/last_trmnl_update.lock
+      - /etc/last_trmnl_update.lock:/tmp/last_trmnl_update.lock
     environment:
       - TZ=America/New_York
     logging:
@@ -16,3 +16,4 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    network_mode: host
