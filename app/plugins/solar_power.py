@@ -28,6 +28,7 @@ class SolarPowerPlugin(BasePlugin):
             Dictionary with merge_variables for TRMNL
         """
         hours_back = self.plugin_config.get('hours_back', 7)
+        aggregation_minutes = self.plugin_config.get('aggregation_interval_minutes', 30)
         entities = self.plugin_config.get('entities', {})
         bucket = self.get_bucket()
         
@@ -46,7 +47,7 @@ from(bucket: "{bucket}")
     |> filter(fn: (r) => r["_field"] == "value")
     |> filter(fn: (r) => r["_measurement"] == "kW")
     |> filter(fn: (r) => r["domain"] == "sensor")
-    |> aggregateWindow(every: 10m, fn: mean, createEmpty: false)
+    |> aggregateWindow(every: {aggregation_minutes}m, fn: mean, createEmpty: false)
         """
         
         logger.debug(f"Executing Flux query: {flux_query}")

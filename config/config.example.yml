@@ -32,7 +32,8 @@ plugins:
   solar_power:
     enabled: true
     webhook_id_key: SOLAR_POWER_WEBHOOK_ID
-    hours_back: 7                          # From configs/solar.yml
+    hours_back: 7
+    aggregation_interval_minutes: 30    # Aggregate data into 30-min intervals to reduce payload size
     entities:
       solar_power: bellmore_solar_power      # kW - current solar generation
       grid_power: bellmore_grid_power        # kW - grid import/export
@@ -56,6 +57,7 @@ plugins:
   temperature_chart:
     enabled: true
     webhook_id_key: TEMPERATURE_CHART_WEBHOOK_ID
-    hours_back: 12                         # From configs/temperature_chart.env
+    hours_back: 12
+    aggregation_interval_minutes: 30    # Aggregate data into 30-min intervals
     entities:
       outdoor_temp: evan_s_pws_temperature
