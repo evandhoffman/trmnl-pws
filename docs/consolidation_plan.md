@@ -23,6 +23,63 @@ Consolidate the four separate microservices (`ambient_trmnl_webhook`, `solar`, `
 
 ---
 
+## TRMNL API Constraints
+
+Reference: https://docs.usetrmnl.com/go/private-plugins/webhooks
+
+### Rate Limits
+
+| Tier | Requests per Hour |
+|------|-------------------|
+| Standard | 12 |
+| TRMNL+ | 30 |
+
+Requests exceeding the rate limit receive a `429` response. Enabling "Debug Logs" on the plugin settings page temporarily increases the rate limit during development.
+
+**Implication for this project**: With a 5-minute (300 second) poll interval, we send **12 requests/hour per plugin**. This is exactly at the standard tier limit. Consider:
+- Slightly increasing `poll_interval` to 301+ seconds for safety margin
+- Or upgrading to TRMNL+ for more headroom
+
+**Configuration**: The app includes a `trmnl_plus_subscriber: true/false` setting to toggle appropriate rate limit and payload size warnings at runtime.
+
+### Payload Size Limits
+
+| Tier | Max Payload |
+|------|-------------|
+| Standard | 2 KB |
+| TRMNL+ | 5 KB |
+
+**Implication**: Chart data (24h of readings at 10-min intervals = 144 points) must be carefully sized. JSON arrays of `[timestamp, value]` pairs can grow quickly.
+
+### Merge Strategies
+
+TRMNL supports three strategies for updating plugin data:
+
+1. **Replace (default)**: Full replacement of `merge_variables`
+2. **`deep_merge`**: Merges new values into existing nested structures
+3. **`stream`**: Appends to arrays with optional `stream_limit` to cap array size
+
+```bash
+# Example: stream strategy with limit
+curl "https://usetrmnl.com/api/custom_plugins/{UUID}" \
+  -H "Content-Type: application/json" \
+  -d '{"merge_variables": {"temps": [42]}, "merge_strategy": "stream", "stream_limit": 144}' \
+  -X POST
+```
+
+**Potential optimization**: For chart plugins, we could use `stream` strategy to append only new data points instead of sending the full 24h dataset each time. This would reduce payload size and bandwidth.
+
+### API Endpoint
+
+```
+POST https://usetrmnl.com/api/custom_plugins/{WEBHOOK_UUID}
+Content-Type: application/json
+
+{"merge_variables": {...}}
+```
+
+---
+
 ## Target Architecture
 
 ### Directory Structure
@@ -80,7 +137,8 @@ temperature_chart/        # Entire directory
 general:
   log_level: INFO
   timezone: America/New_York
-  poll_interval: 300        # 5 minutes - all plugins use the same interval
+  poll_interval: 300              # 5 minutes - all plugins use the same interval
+  trmnl_plus_subscriber: false    # Set to true for higher rate limits (30/hr) and payload size (5KB)
 
 influxdb:
   url: https://homeassistant.local:8086
@@ -439,3 +497,5 @@ git commit -m "Consolidate services into single unified container"
 3. **Retry logic**: Implement exponential backoff for failed webhook posts?
 4. **Caching**: Cache InfluxDB queries to reduce load?
 5. **Individual intervals**: Allow per-plugin poll intervals if needed later?
+6. **Stream strategy**: Use TRMNL's `stream` merge strategy to append only new data points for chart plugins, reducing payload size?
+7. **Rate limit safety**: Increase `poll_interval` slightly above 300s to stay safely under the 12/hour limit?
