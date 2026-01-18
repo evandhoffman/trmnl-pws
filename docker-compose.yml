@@ -1,10 +1,9 @@
-version: '3.8'
-
 services:
   trmnl-pws:
     build: .
     container_name: trmnl-pws
     restart: unless-stopped
+    user: "3444:3444"
     volumes:
       - ./config/config.yml:/app/config/config.yml:ro
       - ./config/secrets.yml:/app/config/secrets.yml:ro
