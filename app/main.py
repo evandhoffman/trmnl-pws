@@ -136,7 +136,7 @@ def main():
             webhook_id = plugin.get_webhook_id()
             if ensure_webhook_initialized(state, webhook_id):
                 state_modified = True
-        
+
         if state_modified:
             save_state(state)
 
@@ -152,7 +152,7 @@ def main():
         while not shutdown_requested:
             iteration += 1
             logger.info(f"=== Starting iteration {iteration} ===")
-            
+
             # Load state once per iteration
             state = load_state()
             iteration_state_modified = False
@@ -225,7 +225,7 @@ def main():
                     logger.error(
                         f"✗ {plugin.plugin_name} failed with error: {e}", exc_info=True
                     )
-            
+
             # Save state once at end of iteration if modified
             if iteration_state_modified:
                 save_state(state)

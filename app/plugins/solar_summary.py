@@ -31,15 +31,12 @@ class SolarSummaryPlugin(BasePlugin):
         bucket = self.get_bucket()
         tz = pytz.timezone(self.get_timezone())
 
-        # Build Flux query using the pattern from solar_summary.yml
+        # Build Flux query using the proven working pattern
         entity_list = list(entities.values())
-        # Map entity names: replace bellmore_ with home_ for compatibility
-        entity_filter_parts = []
-        for e in entity_list:
-            # Use original names from config
-            entity_filter_parts.append(f'r.entity_id == "{e}"')
+        # Build entity filter matching the working query
+        entity_conditions = " or ".join([f'r.entity_id == "{e}"' for e in entity_list])
 
-        entity_filter = " or ".join(entity_filter_parts)
+        logger.debug(f"Solar summary entities: {entity_list}")
 
         flux_query = f"""
 import "date"
@@ -55,18 +52,20 @@ from(bucket: "{bucket}")
     )
     |> filter(fn: (r) =>
         r._measurement == "kW" and
-        ({entity_filter}) and
+        ({entity_conditions}) and
         r.domain == "sensor" and
         r._field == "value"
     )
     |> aggregateWindow(every: 1d, fn: integral, createEmpty: false)
     |> map(fn: (r) => ({{
         r with
-            _value: r._value / 3600.0
+            _value: r._value / 3600.0,
+            entity_id: strings.replaceAll(v: r.entity_id, t: "bellmore_", u: "home_")
     }}))
         """
 
-        logger.debug(f"Executing Flux query: {flux_query}")
+        logger.debug(f"Executing Flux query for solar summary")
+        logger.debug(f"Query: {flux_query}")
 
         # Execute query
         query_api = self.influx_client.query_api()
@@ -80,12 +79,20 @@ from(bucket: "{bucket}")
                 timestamp = record.get_time()
                 value = record.get_value()
 
+                logger.debug(
+                    f"Record: entity_id={entity_id}, timestamp={timestamp}, value={value}"
+                )
+
                 if entity_id and value is not None:
                     daily_records.append(
                         {"_time": timestamp, "_value": value, "entity_id": entity_id}
                     )
 
         logger.info(f"Collected {len(daily_records)} daily energy records")
+        if daily_records:
+            logger.debug(f"First record: {daily_records[0]}")
+        else:
+            logger.warning(f"No records found. Entities: {entity_list}")
 
         # Process data for display
         now_ny = datetime.now(timezone.utc).astimezone(tz)

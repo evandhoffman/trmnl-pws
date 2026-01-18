@@ -61,7 +61,7 @@ def ensure_webhook_initialized(state, webhook_id):
     Args:
         state: Current state dict (will be modified in place)
         webhook_id: The webhook ID to check/initialize
-        
+
     Returns:
         bool: True if state was modified, False otherwise
     """
