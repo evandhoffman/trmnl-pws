@@ -2,7 +2,10 @@
 .env
 .env.*
 config.yaml
-config.yml
+
+# Secrets (new unified config structure)
+config/secrets.yml
+config/config.yml
 
 # Python
 __pycache__/

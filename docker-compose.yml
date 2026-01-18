@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  trmnl-pws:
+    build: .
+    container_name: trmnl-pws
+    restart: unless-stopped
+    volumes:
+      - ./config/config.yml:/app/config/config.yml:ro
+      - ./config/secrets.yml:/app/config/secrets.yml:ro
+    environment:
+      - TZ=America/New_York
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

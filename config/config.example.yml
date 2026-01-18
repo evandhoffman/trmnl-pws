@@ -1,0 +1,61 @@
+general:
+  log_level: INFO
+  timezone: America/New_York
+  poll_interval: 300              # 5 minutes - all plugins use the same interval
+  trmnl_plus_subscriber: false    # Set to true for higher rate limits (30/hr) and payload size (5KB)
+
+influxdb:
+  url: http://127.0.0.1:8086          # InfluxDB URL (adjust for your network)
+  org: bellmore
+  bucket: home_assistant/autogen
+  verify_ssl: false
+
+plugins:
+  weather:
+    enabled: true
+    webhook_id_key: WEATHER_WEBHOOK_ID    # Reference to secrets.yml
+    entities:
+      outdoor_temp: evan_s_pws_temperature
+      indoor_temp: evan_s_pws_inside_temperature
+      humidity: evan_s_pws_humidity
+      indoor_humidity: evan_s_pws_humidity_indoor
+      wind_speed: evan_s_pws_wind_speed
+      wind_gust: evan_s_pws_wind_gust
+      wind_direction: evan_s_pws_wind_direction
+      dew_point: evan_s_pws_dew_point
+      feels_like: evan_s_pws_feels_like
+      pressure: evan_s_pws_relative_pressure
+      daily_rain: evan_s_pws_daily_rain
+      uv_index: evan_s_pws_uv_index
+      solar_radiation: evan_s_pws_irradiance
+
+  solar_power:
+    enabled: true
+    webhook_id_key: SOLAR_POWER_WEBHOOK_ID
+    hours_back: 7                          # From configs/solar.yml
+    entities:
+      solar_power: bellmore_solar_power      # kW - current solar generation
+      grid_power: bellmore_grid_power        # kW - grid import/export
+      load_power: bellmore_load_power        # kW - home consumption
+      battery_power: bellmore_battery_power  # kW - battery charge/discharge
+    display_names:
+      bellmore_solar_power: Solar
+      bellmore_grid_power: Grid
+      bellmore_load_power: Home
+      bellmore_battery_power: Battery
+
+  solar_summary:
+    enabled: true
+    webhook_id_key: SOLAR_SUMMARY_WEBHOOK_ID
+    days_back: 7
+    entities:
+      solar_energy: bellmore_solar_generated   # kWh - daily solar generation
+      grid_energy: bellmore_grid_imported      # kWh - daily grid import
+      load_energy: bellmore_home_usage         # kWh - daily home consumption
+
+  temperature_chart:
+    enabled: true
+    webhook_id_key: TEMPERATURE_CHART_WEBHOOK_ID
+    hours_back: 12                         # From configs/temperature_chart.env
+    entities:
+      outdoor_temp: evan_s_pws_temperature
