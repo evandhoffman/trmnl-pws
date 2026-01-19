@@ -35,11 +35,16 @@ class TemperatureChartPlugin(BasePlugin):
         start_time = f"-{hours_back}h"
         end_time = "now()"
         bucket = self.get_bucket()
+        query_tz = self.get_influx_query_timezone()
 
         # Get outdoor temperature entity
         outdoor_temp_entity = entities.get("outdoor_temp", "evan_s_pws_temperature")
 
         flux_query = f"""
+import "timezone"
+
+option location = timezone.location(name: "{query_tz}")
+
 from(bucket: "{bucket}")
     |> range(start: {start_time}, stop: {end_time})
     |> filter(fn: (r) => r["_measurement"] == "°F")

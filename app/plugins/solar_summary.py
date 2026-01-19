@@ -30,6 +30,7 @@ class SolarSummaryPlugin(BasePlugin):
         entities = self.plugin_config.get("entities", {})
         bucket = self.get_bucket()
         tz = pytz.timezone(self.get_timezone())
+        query_tz = self.get_influx_query_timezone()
 
         # Build Flux query using the proven working pattern
         entity_list = list(entities.values())
@@ -43,7 +44,7 @@ import "date"
 import "timezone"
 import "strings"
 
-option location = timezone.location(name: "{self.get_timezone()}")
+option location = timezone.location(name: "{query_tz}")
 
 from(bucket: "{bucket}")
     |> range(

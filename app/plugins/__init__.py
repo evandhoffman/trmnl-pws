@@ -75,6 +75,15 @@ class BasePlugin(ABC):
         """
         return self.general_config.get("timezone", "America/New_York")
 
+    def get_influx_query_timezone(self) -> str:
+        """
+        Get the timezone for InfluxDB queries (date boundaries)
+
+        Returns:
+            Timezone string (e.g., 'America/New_York')
+        """
+        return self.general_config.get("influx_query_timezone", "America/New_York")
+
     def get_bucket(self) -> str:
         """
         Get the InfluxDB bucket name

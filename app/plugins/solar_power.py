@@ -31,6 +31,7 @@ class SolarPowerPlugin(BasePlugin):
         aggregation_minutes = self.plugin_config.get("aggregation_interval_minutes", 30)
         entities = self.plugin_config.get("entities", {})
         bucket = self.get_bucket()
+        query_tz = self.get_influx_query_timezone()
 
         # Build entity filter for Flux query
         entity_list = list(entities.values())
@@ -41,6 +42,10 @@ class SolarPowerPlugin(BasePlugin):
         end_time = "now()"
 
         flux_query = f"""
+import "timezone"
+
+option location = timezone.location(name: "{query_tz}")
+
 from(bucket: "{bucket}")
     |> range(start: {start_time}, stop: {end_time})
     |> filter(fn: (r) => {entity_filter})

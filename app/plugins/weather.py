@@ -30,8 +30,13 @@ class WeatherPlugin(BasePlugin):
             Tuple of (value, timestamp) or None if not found
         """
         bucket = self.get_bucket()
+        query_tz = self.get_influx_query_timezone()
 
         flux_query = f"""
+import "timezone"
+
+option location = timezone.location(name: "{query_tz}")
+
 from(bucket: "{bucket}")
     |> range(start: -24h)
     |> filter(fn: (r) => r["entity_id"] == "{entity_id}")
@@ -59,8 +64,13 @@ from(bucket: "{bucket}")
             Timestamp of last rain or None
         """
         bucket = self.get_bucket()
+        query_tz = self.get_influx_query_timezone()
 
         flux_query = f"""
+import "timezone"
+
+option location = timezone.location(name: "{query_tz}")
+
 from(bucket: "{bucket}")
     |> range(start: -30d)
     |> filter(fn: (r) => r["entity_id"] == "evan_s_pws_precipitation_intensity")

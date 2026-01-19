@@ -1,6 +1,7 @@
 general:
   log_level: INFO
   timezone: America/New_York
+  influx_query_timezone: America/New_York  # Timezone for InfluxDB date queries (date.truncate, etc)
   poll_interval: 300              # 5 minutes - all plugins use the same interval
   trmnl_plus_subscriber: false    # Set to true for higher rate limits (30/hr) and payload size (5KB)
 
