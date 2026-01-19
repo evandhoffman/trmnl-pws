@@ -134,10 +134,14 @@ from(bucket: "{bucket}")
         # Assign values to slots
         for rec in daily_records:
             ts = rec["_time"]
-            if ts.time() == dt_time(0, 0):
-                map_date = (ts - timedelta(days=1)).date()
+            # Convert to local timezone for proper date calculation
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            ts_local = ts.astimezone(tz)
+            if ts_local.time() == dt_time(0, 0):
+                map_date = (ts_local - timedelta(days=1)).date()
             else:
-                map_date = ts.date()
+                map_date = ts_local.date()
 
             for slot in slots:
                 if slot["date_obj"] == map_date:
