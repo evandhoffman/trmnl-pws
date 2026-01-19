@@ -509,3 +509,56 @@ git commit -m "Consolidate services into single unified container"
 5. **Individual intervals**: Allow per-plugin poll intervals if needed later?
 6. **Stream strategy**: Use TRMNL's `stream` merge strategy to append only new data points for chart plugins, reducing payload size?
 7. **Rate limit safety**: Increase `poll_interval` slightly above 300s to stay safely under the 12/hour limit?
+
+---
+
+## After-Action Report
+
+### What Went Well
+
+1. **Plugin Architecture**: The `BasePlugin` abstract class pattern proved effective. It enforced a consistent interface across all four plugins while allowing each to implement their own data collection logic independently. Easy to test and extend.
+
+2. **Unified Configuration**: Moving from a mix of `.env` and `config.yml` files to a consistent YAML-based approach (`config.yml` + `secrets.yml`) significantly improved clarity and maintainability. Clear separation between configuration (committed) and secrets (gitignored).
+
+3. **Official InfluxDB Client**: Adopting the official `influxdb-client` library eliminated custom HTTP code and provided automatic retries, connection pooling, and better error handling out of the box.
+
+4. **Docker Containerization**: Single Dockerfile with tini for proper signal handling simplified deployment. No more managing 4 separate container images.
+
+5. **Shared Utilities**: Consolidating formatting, conversion, and InfluxDB client code eliminated duplication and reduced maintenance surface area.
+
+### What Needed Iteration
+
+1. **Payload Size Optimization**: Initial implementation of `solar_power` plugin exceeded the 2KB TRMNL standard tier limit (3182 bytes). Solution: Added configurable `aggregation_interval_minutes` setting (default 30 min), reducing the solar_power payload by 67% to 1153 bytes while maintaining visual quality.
+
+2. **State Management Architecture**: Initial approach placed state tracking at the plugin level. This caused multiple state file loads per iteration and made backoff logic fragmented. Solution: Elevated state management to the orchestration layer (`main.py`), loading state once per iteration and passing it to functions that need it.
+
+3. **Rate Limit Handling**: Initially, failed webhook posts would retry immediately on the next poll interval, potentially hammering the TRMNL API during rate limit windows. Solution: Implemented exponential backoff algorithm with caching:
+   - Per-webhook failure tracking in state file (`/tmp/last_trmnl_update.lock`)
+   - Exponential backoff: `2^failure_count × base_interval`, capped at 3600s (1 hour)
+   - State persists across container restarts via volume mount
+
+4. **Timezone Issues in Flux Queries**: Queries used UTC by default, causing incorrect date boundaries (showing tomorrow's data). Solution: Added `influx_query_timezone` configuration setting and updated all Flux queries to include `import "timezone"` with `option location = timezone.location(name: "...")` to ensure date boundaries align with the actual timezone.
+
+5. **Solar Summary Data Retrieval**: Initially configured to query `bellmore_solar_generated` (kWh energy entity) which didn't exist or had no data. Solution: Changed to query `bellmore_solar_power` (kW power entity) and use Flux `integral()` aggregation to calculate daily energy, making the plugin functional.
+
+6. **Smart Polling Inefficiency**: Initially, `main.py` always slept the full `poll_interval` even when backoff was active, wasting time before retry windows expired. Solution: Calculate `min_wait_seconds` across all plugins based on their backoff state, sleep only until the next plugin is ready, enabling early wakeup when backoff windows close.
+
+7. **State File I/O Overhead**: Early implementation loaded and saved state multiple times per iteration. Solution: Implemented caching pattern - load state once at the start of each iteration, pass the state object to all decision functions, save only once at the end if modified.
+
+### Key Learnings
+
+- **InfluxDB Timezone Handling**: Always specify timezone explicitly in Flux queries, even if you think UTC will work. Query timezone should be independent of display timezone.
+- **Payload Size Matters**: Monitor webhook payload sizes against TRMNL limits. Aggregation intervals are effective levers for reducing size without losing signal.
+- **Stateful Rate Limiting**: When implementing backoff, store state durably (file/database) and make it accessible to orchestration logic, not individual plugins.
+- **Plugin Simplicity**: Plugins should focus solely on data collection. Cross-cutting concerns like rate limiting, retries, and state management belong in the orchestration layer.
+
+### Testing Approach That Worked
+
+- **Manual log inspection**: Running the unified app locally with `log_level: DEBUG` revealed payload sizes, query execution, timezone calculations, and state transitions.
+- **Incremental deployment**: Tested each plugin independently before integrating all four.
+- **State file inspection**: Examining `/tmp/last_trmnl_update.lock` during development provided visibility into backoff calculations and timestamps.
+- **Real webhook posts**: All verification was done against live TRMNL webhooks with actual data, catching edge cases that would be missed in unit tests.
+
+### Deployment Status
+
+✅ **Production Ready**: All four plugins functioning correctly with proper data collection, rate limit protection, and timezone handling. State tracking prevents violations across container restarts. Smart polling minimizes unnecessary waiting.
