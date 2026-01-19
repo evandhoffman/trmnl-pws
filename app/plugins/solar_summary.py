@@ -107,11 +107,15 @@ from(bucket: "{bucket}")
         dates = set()
         for rec in daily_records:
             ts = rec["_time"]
+            # Convert to local timezone for proper date calculation
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            ts_local = ts.astimezone(tz)
             # midnight timestamp → previous day
-            if ts.time() == dt_time(0, 0):
-                map_date = (ts - timedelta(days=1)).date()
+            if ts_local.time() == dt_time(0, 0):
+                map_date = (ts_local - timedelta(days=1)).date()
             else:
-                map_date = ts.date()
+                map_date = ts_local.date()
             dates.add(map_date)
 
         # Always include today
