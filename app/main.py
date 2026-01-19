@@ -189,7 +189,7 @@ def main():
                         next_update_str = next_update_time.strftime("%H:%M")
 
                         backoff_msg = (
-                            f" (backoff x{2**failure_count})"
+                            f" (⏰ backoff x{2**failure_count})"
                             if failure_count > 0
                             else ""
                         )
@@ -239,7 +239,7 @@ def main():
 
             # Wait for next iteration (use minimum wait time if backoff is active)
             logger.info(
-                f"Waiting {min_wait_seconds:.0f} seconds before next iteration..."
+                f"⏰ Waiting {min_wait_seconds:.0f} seconds before next iteration..."
             )
 
             # Sleep in smaller increments to allow faster shutdown
