@@ -213,21 +213,21 @@ def main():
                     if status == "success":
                         record_update(state, webhook_id, success=True)
                         iteration_state_modified = True
-                        logger.info(f"✓ {plugin.plugin_name} completed successfully")
+                        logger.info(f"✅ {plugin.plugin_name} completed successfully")
                     elif status == "rate_limited":
                         record_update(state, webhook_id, success=False)
                         iteration_state_modified = True
                         logger.warning(
-                            f"✗ {plugin.plugin_name} rate limited (will use backoff)"
+                            f"🚫 {plugin.plugin_name} rate limited (will use backoff)"
                         )
                     else:
                         record_update(state, webhook_id, success=False)
                         iteration_state_modified = True
-                        logger.warning(f"✗ {plugin.plugin_name} failed to post webhook")
+                        logger.warning(f"❌ {plugin.plugin_name} failed to post webhook")
 
                 except Exception as e:
                     logger.error(
-                        f"✗ {plugin.plugin_name} failed with error: {e}", exc_info=True
+                        f"❌ {plugin.plugin_name} failed with error: {e}", exc_info=True
                     )
 
             # Save state once at end of iteration if modified

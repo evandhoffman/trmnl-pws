@@ -48,21 +48,21 @@ def post_to_webhook(
         )
 
         if response.status_code == 429:
-            logger.error("Rate limit exceeded (429). Will use exponential backoff.")
+            logger.error("🚫 Rate limit exceeded (429). Will use exponential backoff.")
             return "rate_limited"
 
         response.raise_for_status()
         logger.info(
-            f"Successfully posted data to webhook {webhook_id[:8]}... "
+            f"✅ Successfully posted data to webhook {webhook_id[:8]}... "
             f"({payload_size} bytes, status {response.status_code})"
         )
         return "success"
 
     except requests.exceptions.HTTPError as e:
         logger.error(
-            f"HTTP error posting to webhook: {e} - {response.text if response else 'No response'}"
+            f"❌ HTTP error posting to webhook: {e} - {response.text if response else 'No response'}"
         )
         return "failed"
     except requests.exceptions.RequestException as e:
-        logger.error(f"Error posting to webhook: {e}")
+        logger.error(f"❌ Error posting to webhook: {e}")
         return "failed"
