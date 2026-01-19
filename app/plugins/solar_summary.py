@@ -65,6 +65,9 @@ from(bucket: "{bucket}")
         """
 
         logger.debug(f"Executing Flux query for solar summary")
+        logger.debug(f"Flux query:\n{flux_query}")
+
+        logger.debug(f"Executing Flux query for solar summary")
         logger.debug(f"Query: {flux_query}")
 
         # Execute query

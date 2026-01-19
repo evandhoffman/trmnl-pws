@@ -50,9 +50,9 @@ plugins:
     webhook_id_key: SOLAR_SUMMARY_WEBHOOK_ID
     days_back: 7
     entities:
-      solar_energy: bellmore_solar_generated   # kWh - daily solar generation
-      grid_energy: bellmore_grid_imported      # kWh - daily grid import
-      load_energy: bellmore_home_usage         # kWh - daily home consumption
+      solar_power: bellmore_solar_power      # kW - solar generation
+      grid_power: bellmore_grid_power        # kW - grid import/export
+      load_power: bellmore_load_power        # kW - home consumption
 
   temperature_chart:
     enabled: true
