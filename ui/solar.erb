@@ -1,3 +1,4 @@
+<!-- https://trmnl.com/plugin_settings/27170/markup/edit?size=markup_full -->
 <script src="https://code.highcharts.com/highcharts.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartkick@5.0.1/dist/chartkick.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
@@ -106,7 +107,8 @@
 
     <script type="text/javascript">
         // Empty data arrays to be filled in later
-        var gridData = {{str_bellmore_grid_power}};
+        //var gridData = {{str_bellmore_grid_power}};
+        var loadData = {{str_bellmore_load_power}};
         var solarData = {{str_bellmore_solar_power}};
 
         // recommended configs to achieve the e-ink friendly aesthetic
@@ -114,7 +116,8 @@
             new Chartkick["LineChart"](
             "solar-chart",
             [
-                {name: "Grid Power", data: gridData, dashStyle: "dot"},
+                // {name: "Grid Power", data: gridData, dashStyle: "dash"},
+                {name: "House load", data: loadData, dashStyle: "dot"},
                 {name: "Solar Generation", data: solarData, dashStyle: "solid"},
             ],
             {
@@ -142,7 +145,7 @@
                     plotOptions: {
                         series: {
                             animation: false,
-                            lineWidth: 2,
+                            lineWidth: 3,
                             marker: {
                                 enabled: false
                             }
