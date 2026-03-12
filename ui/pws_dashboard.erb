@@ -14,7 +14,7 @@
         </div>
       </div>
       <div class="col col--span-3 col--end">
-        <div class="grid grid--cols-2 gap--medium">
+        <div class="grid grid--cols-3 gap--medium">
           <div class="item">
             <div class="meta"></div>
             <div class="icon">
@@ -56,6 +56,28 @@
             <div class="content">
               <span class="value value--xsmall">{{windspeedmph | round}} / {{windgustmph | round}} mph</span>
               <span class="label">{{winddir_pretty}}</span>
+            </div>
+          </div>
+
+          <div class="item">
+            <div class="meta"></div>
+            <div class="icon">
+              <img class="weather-icon" src="/images/weather/wi-thermometer.svg" />
+            </div>
+            <div class="content">
+              <span class="value value--small">{{dewPoint | round}}°</span>
+              <span class="label">Dew Point</span>
+            </div>
+          </div>
+
+          <div class="item">
+            <div class="meta"></div>
+            <div class="icon">
+              <img class="weather-icon" src="/images/weather/wi-hot.svg" />
+            </div>
+            <div class="content">
+              <span class="value value--small">{{uv | round}}</span>
+              <span class="label">UV Index</span>
             </div>
           </div>
         </div>
