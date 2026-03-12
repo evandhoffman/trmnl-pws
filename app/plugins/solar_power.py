@@ -90,12 +90,24 @@ from(bucket: "{bucket}")
         local_now = datetime.now(timezone.utc).astimezone(local_tz)
         formatted_timestamp = local_now.strftime("%A, %B %-d, %-I:%M %p")
         daily_energy = self._query_daily_energy(entities.get("solar_power"))
+        peak_solar_kw = 0.0
+        peak_solar_time = "N/A"
+        solar_entity_id = entities.get("solar_power")
+        solar_points = sensors_data.get(solar_entity_id, []) if solar_entity_id else []
+        if solar_points:
+            peak_timestamp_ms, peak_solar_kw = max(solar_points, key=lambda point: point[1])
+            peak_local_time = datetime.fromtimestamp(
+                peak_timestamp_ms / 1000, tz=local_tz
+            )
+            peak_solar_time = peak_local_time.strftime("%-I:%M %p")
 
         # Build result with stringified arrays for each entity
         result = {
             "current_timestamp": formatted_timestamp,
             "display_timezone": self.get_timezone(),
             "str_daily_energy": round_value(daily_energy, 1),
+            "peak_solar_kw": round_value(peak_solar_kw, 1),
+            "peak_solar_time": peak_solar_time,
         }
 
         for entity_id, data in sensors_data.items():
