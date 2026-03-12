@@ -1,144 +1,200 @@
 # TRMNL Personal Weather Station - AI Assistant Guide
 
 ## Project Overview
-A multi-service weather and energy monitoring system that collects data from AmbientWeather stations and InfluxDB, then pushes formatted data to TRMNL e-ink displays via webhooks. Each service runs independently as a Dockerized daemon.
+A unified weather and energy monitoring system that collects data from InfluxDB (Home Assistant) and pushes formatted data to TRMNL e-ink displays via webhooks. Runs as a single consolidated Docker container with a plugin architecture.
 
 ## Architecture
 
-### Service Independence Pattern
-Each subdirectory is a **standalone microservice** with its own:
-- Python script (data collector/processor)
-- `Dockerfile` + `docker-compose.yml` 
-- `requirements.txt`
-- Configuration (either `.env` or `config.yml`)
+### Unified Service Pattern (Consolidated)
+The project has been consolidated from 4 separate microservices into a **single unified application** with a plugin architecture:
 
-**Services:**
-- `ambient_trmnl_webhook/` - Polls AmbientWeather API for live weather data
-- `solar/` - Queries InfluxDB for solar power data (24h + 30d aggregates)
-- `solar_summary/` - Daily solar energy summary calculations
-- `temperature_chart/` - InfluxDB temperature data for Highcharts visualization
+**Directory Structure:**
+```
+/app
+  ├── __init__.py              # Package marker (v2.0.0)
+  ├── config.py                # YAML config loading with validation
+  ├── influx_client.py         # Official InfluxDB client wrapper
+  ├── webhook.py               # TRMNL webhook poster with payload validation
+  ├── state.py                 # Rate limit state tracking & exponential backoff
+  ├── main.py                  # Scheduler loop with orchestration
+  ├── plugins/
+  │   ├── __init__.py          # BasePlugin abstract class
+  │   ├── weather.py           # InfluxDB weather data (LatestValue queries)
+  │   ├── solar_power.py       # 7-hour power chart with aggregation
+  │   ├── solar_summary.py     # 7-day energy summary via integral
+  │   └── temperature_chart.py # 12-hour temperature chart
+  └── utils/
+      ├── formatting.py        # Timestamp formatting utilities
+      └── conversions.py       # Unit conversions & compass directions
+/config
+  ├── config.yml              # Live config (gitignored)
+  ├── config.example.yml      # Template config
+  ├── secrets.yml             # Live secrets (gitignored)
+  └── secrets.example.yml     # Template secrets
+```
+
+**Single Entry Point:**
+- `docker-compose.yml` - Runs unified application with volume mounts
+- `Dockerfile` - Python 3.11-slim with tini for signal handling
+- `requirements.txt` - Single dependency list
 
 ### Data Flow
 ```
-AmbientWeather API → ambient_trmnl_webhook → TRMNL webhook
-InfluxDB (Home Assistant) → solar/temperature services → TRMNL webhook
+InfluxDB (Home Assistant) → 4 plugins → State tracking → Rate limit backoff → TRMNL webhooks
+  (weather, solar_power, solar_summary, temperature_chart)
 ```
-
-Each service formats data into TRMNL's `merge_variables` structure for ERB templates in `ui/`.
 
 ## Configuration Patterns
 
-### Two Config Approaches
-1. **Environment variables** (`.env` files): Used by `ambient_trmnl_webhook`, `temperature_chart`
-   - Never committed (add to `.gitignore`)
-   - Required vars: `WEBHOOK_ID`, API keys, `TIMEZONE`
+### YAML Configuration (Unified)
+Single configuration file approach:
+- `config.yml` (gitignored) - Live settings with actual credentials
+- `secrets.yml` (gitignored) - Webhook IDs and InfluxDB tokens
+- Both have `.example.yml` templates in repository
 
-2. **YAML config files**: Used by `solar/`, `solar_summary/`
-   - `config.example.yml` is committed template
-   - `config.yml` contains real credentials (gitignored)
-   - Structured with sections: `general`, `influxdb`, `webhook`, `queries`
+**Key Settings:**
+```yaml
+general:
+  log_level: INFO
+  timezone: America/New_York                    # Display timezone
+  influx_query_timezone: America/New_York      # Query timezone for date boundaries
+  poll_interval: 300                           # 5 min (12 req/hr at standard tier)
+  trmnl_plus_subscriber: false
 
-### InfluxDB Query Pattern
-Services use **Flux queries** with placeholder substitution:
-```python
-flux_query = query_template.format(
-    start_time=start_time,
-    end_time=end_time,
-    bucket=bucket
-)
+influxdb:
+  url: http://192.168.1.32:8086
+  org: bellmore
+  bucket: home_assistant/autogen
+  verify_ssl: false
+
+plugins:
+  weather:
+    enabled: true
+    webhook_id_key: WEATHER_WEBHOOK_ID
+    # ... entity mappings ...
 ```
-See [solar_data.py](solar/solar_data.py#L155-L165) for the `execute_query()` pattern.
 
 ## Key Development Patterns
 
-### Custom InfluxDBClient Class
-All InfluxDB services implement a lightweight client (not the official library):
-- Direct HTTP POST to `/api/v2/query`
-- CSV response parsing (splits on commas, handles headers)
-- SSL verification disabled (`verify_ssl: false`)
+### Official InfluxDB Client
+Uses official `influxdb-client` library (not custom HTTP):
+- Automatic retries and connection pooling
+- Query API with Flux support
+- Better error handling
 
-Example: [solar/solar_data.py](solar/solar_data.py#L32-L98)
-
-### Timezone Handling
-**Always use pytz for timezone conversions**, especially for TRMNL display formatting:
-```python
-local_tz = pytz.timezone(TIMEZONE)  # From config
-local_dt = utc_dt.astimezone(local_tz)
+### Timezone Handling in Flux Queries
+**All Flux queries must include timezone location** for correct date boundaries:
+```flux
+import "timezone"
+option location = timezone.location(name: "America/New_York")
 ```
 
+Without this, queries use UTC which can show tomorrow's data when it's actually today.
+
+### Plugin Architecture
+All plugins inherit from `BasePlugin`:
+```python
+class MyPlugin(BasePlugin):
+    def collect_data(self) -> Dict[str, Any]:
+        """Return merge_variables dict"""
+    def get_webhook_id(self) -> str:
+        """Return webhook ID from secrets"""
+```
+
+Helper methods:
+- `get_bucket()` - InfluxDB bucket from config
+- `get_timezone()` - Display timezone
+- `get_influx_query_timezone()` - Query timezone for Flux
+
+### State Tracking & Rate Limit Backoff
+State file: `/tmp/last_trmnl_update.lock` (or configurable via `STATE_LOCK_PATH`)
+
+Stores per-webhook:
+- Last attempt timestamp (UTC ISO format)
+- Failure count for exponential backoff
+
+**Exponential Backoff Algorithm:**
+- 1st failure: wait 600s (2 × 300s poll_interval)
+- 2nd failure: wait 1200s (4 × 300s)
+- 3rd failure: wait 2400s (8 × 300s)
+- 4th+ failure: capped at 3600s (1 hour max)
+
+Resets on success. Prevents hammering TRMNL API during rate limits.
+
+### Orchestration Pattern (main.py)
+State management at orchestration level, not in plugins:
+1. Load state once per iteration
+2. Calculate min_wait_seconds across all plugins
+3. Sleep only until next plugin is ready (not always full poll_interval)
+4. Save state once per iteration if modified
+
+This enables smart waiting - if backoff is active, wakes up early to retry.
+
 ### TRMNL Webhook Format
-All services POST to `https://usetrmnl.com/api/custom_plugins/{WEBHOOK_ID}`:
-```json
-{
-  "merge_variables": {
-    "tempf": 72.5,
-    "date_pretty": "Sat 18 Jan, 02:15 PM",
-    ...
-  }
+All plugins return dict with `merge_variables`:
+```python
+return {
+    "merge_variables": {
+        "temperature": 72.5,
+        "humidity": 65,
+        # ... other fields ...
+    }
 }
 ```
 
-## UI Templates (ERB)
-Located in `ui/`, these are **TRMNL-specific ERB templates**:
-- Use double curly braces: `{{tempf}}`, `{{winddir_pretty}}`
-- Styled for e-ink displays (black/white, specific grid layouts)
-- `weather-chart.erb` includes Highcharts with tabular-nums font variant
-- Custom helpers: `| round` filter, JavaScript data embedding via `{{js_evan_s_pws_temp}}`
+Webhook posting includes:
+- Payload size validation (2KB standard, 5KB TRMNL+)
+- Rate limit detection (HTTP 429)
+- Status returns: 'success', 'rate_limited', 'failed'
 
 ## Docker Deployment
 
-### Standard Pattern Per Service
+### Single Container Pattern
 ```bash
-cd <service-directory>
 docker-compose up -d
 ```
 
-### Dockerfile Conventions
-- Base: `python:3.11-slim`
-- Uses `tini` for proper signal handling (graceful shutdown)
-- Single script execution: `CMD ["python", "<script>.py"]`
+Runs as user 3444:3444 (configurable in docker-compose.yml)
 
-### Continuous Operation
-Services run in infinite loops with configurable poll intervals:
-- `poll_interval: 300` (5 minutes) - normal operation
-- `retry_interval: 60` (1 minute) - on errors
-- All services run as Docker containers on home lab infrastructure
+### State Persistence
+Lock file mounted on host to survive container restarts:
+```yaml
+volumes:
+  - ./last_trmnl_update.lock:/tmp/last_trmnl_update.lock
+```
 
 ## Testing & Debugging
 
 ### Local Testing
 ```bash
-# Install deps
-pip install -r requirements.txt
-
-# Run directly (uses .env or config.yml)
-python <script>.py
+python -m app.main
 ```
 
-**Note**: Services are tested against live TRMNL webhooks - no local/mock webhook environment exists.
+Uses config.yml + secrets.yml from `/config` directory
+
+### Debug Logging
+Set `log_level: DEBUG` in config to see:
+- Flux query details
+- InfluxDB record counts
+- Timestamp calculations
+- State file operations
 
 ### Common Issues
-1. **SSL verification errors**: Set `verify_ssl: false` in config
-2. **Empty InfluxDB results**: Check Flux query syntax, entity_id filters
-3. **Timezone display issues**: Verify `TIMEZONE` setting matches display location
+1. **Timezone mismatch**: Ensure `influx_query_timezone` matches `timezone`
+2. **No query results**: Check Flux `entity_id` filters match actual InfluxDB data
+3. **Solar summary empty**: Requires power data (kW measurement) not energy (kWh)
+4. **Rate limit backoff stuck**: Check `/tmp/last_trmnl_update.lock` permissions for user 3444
 
-## Adding New Services
+## Adding New Plugins
 
-1. Create subdirectory with structure:
-   ```
-   new_service/
-     ├── new_service.py
-     ├── Dockerfile
-     ├── docker-compose.yml
-     ├── requirements.txt
-     └── config.example.yml (or use .env)
-   ```
-
-2. Follow `InfluxDBClient` pattern if querying InfluxDB
-3. Format webhook payload with `merge_variables` key
-4. Add corresponding ERB template to `ui/` directory
+1. Create `app/plugins/new_plugin.py` inheriting from `BasePlugin`
+2. Implement `collect_data()` and `get_webhook_id()`
+3. Add config section to `config.example.yml` and `config.yml`
+4. Add webhook ID key to `secrets.example.yml` and `secrets.yml`
+5. Initialize in `main.py` plugin list
+6. Respect rate limit backoff via state management
 
 ## External Dependencies
-- **AmbientWeather**: Requires `AMBIENT_API_KEY` + `AMBIENT_APPLICATION_KEY` from [ambientweather.com](https://ambientweather.com/faqs/question/view/id/1834/)
 - **TRMNL**: Create private plugin at [usetrmnl.com](https://docs.usetrmnl.com/go/plugin-marketplace/plugin-creation)
 - **InfluxDB**: Home Assistant data store at `home_assistant/autogen` bucket
+- **Docker**: For containerized deployment

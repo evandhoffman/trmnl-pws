@@ -2,7 +2,13 @@
 .env
 .env.*
 config.yaml
-config.yml
+
+# Secrets (new unified config structure)
+config/secrets.yml
+config/config.yml
+
+# State tracking
+last_trmnl_update.lock
 
 # Python
 __pycache__/
@@ -39,3 +45,6 @@ ENV/
 *.swo
 .DS_Store
 Thumbs.db
+configs/
+solar/config.yml
+solar_summary/config.yml
