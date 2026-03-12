@@ -153,11 +153,13 @@ from(bucket: "{bucket}")
                     break
 
         # Build merge_variables with JSON stringified arrays
+        weekly_solar_total = round_value(sum(s["solar"] for s in slots), 1)
         merge = {
             "str_categories": json.dumps([s["date"] for s in slots]),
             "str_grid": json.dumps([s["grid"] for s in slots]),
             "str_load": json.dumps([s["load"] for s in slots]),
             "str_solar": json.dumps([s["solar"] for s in slots]),
+            "str_weekly_solar_total": weekly_solar_total,
         }
 
         logger.info(f"Formatted solar summary for {len(slots)} days")
