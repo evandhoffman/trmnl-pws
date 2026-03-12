@@ -1,3 +1,4 @@
+<!-- https://trmnl.com/plugin_settings/18870/markup/edit?size=markup_full -->
 <div class="view view--full">
   <div class="layout layout--col gap--space-between">
     <div class="grid">
@@ -5,9 +6,9 @@
         <div class="item h--full">
           <div class="meta"></div>
           <div class="content">
-            <span class="value value--xxxlarge">{{tempf | round}}°</span>
+            <span class="value value--xxxlarge">{{tempf | round}}°F</span>
             <span class="label w--full">
-              {{winddir_pretty}}
+              Wind {{winddir_pretty}}
             </span>
           </div>
         </div>
@@ -69,7 +70,7 @@
           <div class="meta"></div>
           <div class="content">
             <span class="value value--small">Last Rain: {{last_rain_date_pretty}}</span>
-            <span class="label">Today's Rain: {{dailyrainin}} inches</span>
+            <span class="label">Today's Rain: {{dailyrainin | round: 2}} inches</span>
           </div>
         </div>
       </div>

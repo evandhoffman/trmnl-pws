@@ -1,3 +1,4 @@
+<!-- https://trmnl.com/plugin_settings/25545/markup/edit?size=markup_full -->
 <script src="https://code.highcharts.com/highcharts.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chartkick@5.0.1/dist/chartkick.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
@@ -104,7 +105,7 @@
   </div>
 
   <script type="text/javascript">
-    var data = {{js_evan_s_pws_temp}};
+    var data = {{js_evan_s_pws_temperature}};
 
     // Find temperature range for better y-axis setup
     const temperatures = data.map(point => point[1]);
@@ -165,15 +166,15 @@
               gridLineDashStyle: "shortdot",
               gridLineWidth: 1,
               gridLineColor: "#000000",
-              plotBands: [{ 
-                from: null, 
-                to: 32, 
+              plotBands: [{
+                from: null,
+                to: 32,
                 color: 'rgba(200, 200, 200, 0.5)' // Grey shading below freezing
               }],
-              plotLines: [{ 
-                value: 32, 
-                color: 'black', 
-                width: 2, 
+              plotLines: [{
+                value: 32,
+                color: 'black',
+                width: 2,
                 dashStyle: 'dash',
                 label: {
                   text: 'Freezing (32°F)',
