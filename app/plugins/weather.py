@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Iterable
 from app.plugins import BasePlugin
 from app.utils.formatting import format_timestamp_for_display, format_relative_time
 from app.utils.conversions import format_wind_description, round_value
@@ -55,6 +55,50 @@ from(bucket: "{bucket}")
                 return (value, timestamp)
 
         return None
+
+    def _query_latest_values(
+        self, entity_measurements: Iterable[tuple[str, str]]
+    ) -> Dict[str, tuple]:
+        """Query the latest values for multiple entity/measurement pairs."""
+        pairs = list(entity_measurements)
+        if not pairs:
+            return {}
+
+        bucket = self.get_bucket()
+        query_tz = self.get_influx_query_timezone()
+        filters = " or ".join(
+            [
+                f'(r["entity_id"] == "{entity_id}" and r["_measurement"] == "{measurement}")'
+                for entity_id, measurement in pairs
+            ]
+        )
+
+        flux_query = f"""
+import "timezone"
+
+option location = timezone.location(name: "{query_tz}")
+
+from(bucket: "{bucket}")
+    |> range(start: -24h)
+    |> filter(fn: (r) => r["_field"] == "value")
+    |> filter(fn: (r) => r["domain"] == "sensor")
+    |> filter(fn: (r) => {filters})
+    |> last()
+        """
+
+        latest_values = {}
+        tables = self.influx_client.query_api().query(flux_query)
+        for table in tables:
+            for record in table.records:
+                entity_id = record.values.get("entity_id")
+                measurement = record.values.get("_measurement")
+                if entity_id and measurement:
+                    latest_values[(entity_id, measurement)] = (
+                        record.get_value(),
+                        record.get_time(),
+                    )
+
+        return latest_values
 
     def _query_last_rain(self, entity_id: str) -> Optional[datetime]:
         """
@@ -137,9 +181,8 @@ from(bucket: "{bucket}")
             Dictionary with merge_variables for TRMNL
         """
         entities = self.plugin_config.get("entities", {})
-
-        # Query latest values for each entity
         result = {}
+        latest_pairs = []
 
         # Temperature data (°F)
         temp_entities = {
@@ -152,9 +195,7 @@ from(bucket: "{bucket}")
         for key, (config_key, measurement) in temp_entities.items():
             entity_id = entities.get(config_key)
             if entity_id:
-                data = self._query_latest_value(entity_id, measurement)
-                if data:
-                    result[key] = round_value(data[0], 1)
+                latest_pairs.append((entity_id, measurement))
 
         # Humidity data (%)
         humidity_entities = {
@@ -162,34 +203,68 @@ from(bucket: "{bucket}")
             "humidityin": ("indoor_humidity", "%"),
         }
 
-        for key, (config_key, measurement) in humidity_entities.items():
+        for _, (config_key, measurement) in humidity_entities.items():
             entity_id = entities.get(config_key)
             if entity_id:
-                data = self._query_latest_value(entity_id, measurement)
-                if data:
-                    result[key] = round_value(data[0], 0)
+                latest_pairs.append((entity_id, measurement))
 
         # Wind data
         wind_speed_entity = entities.get("wind_speed")
         wind_gust_entity = entities.get("wind_gust")
         wind_dir_entity = entities.get("wind_direction")
+        if wind_speed_entity:
+            latest_pairs.append((wind_speed_entity, "mph"))
+        if wind_gust_entity:
+            latest_pairs.append((wind_gust_entity, "mph"))
+        if wind_dir_entity:
+            latest_pairs.append((wind_dir_entity, "°"))
+
+        # Pressure/rain/UV/solar data
+        pressure_entity = entities.get("pressure")
+        rain_entity = entities.get("daily_rain")
+        uv_entity = entities.get("uv_index")
+        solar_rad_entity = entities.get("solar_radiation")
+        if pressure_entity:
+            latest_pairs.append((pressure_entity, "inHg"))
+        if rain_entity:
+            latest_pairs.append((rain_entity, "in"))
+        if uv_entity:
+            latest_pairs.append((uv_entity, "Index"))
+        if solar_rad_entity:
+            latest_pairs.append((solar_rad_entity, "W/m²"))
+
+        latest_values = self._query_latest_values(latest_pairs)
+
+        for key, (config_key, measurement) in temp_entities.items():
+            entity_id = entities.get(config_key)
+            if entity_id:
+                data = latest_values.get((entity_id, measurement))
+                if data:
+                    result[key] = round_value(data[0], 1)
+
+        for key, (config_key, measurement) in humidity_entities.items():
+            entity_id = entities.get(config_key)
+            if entity_id:
+                data = latest_values.get((entity_id, measurement))
+                if data:
+                    result[key] = round_value(data[0], 0)
 
         wind_speed = None
         wind_dir = None
 
         if wind_speed_entity:
-            data = self._query_latest_value(wind_speed_entity, "mph")
+            data = latest_values.get((wind_speed_entity, "mph"))
             if data:
                 wind_speed = round_value(data[0], 1)
                 result["windspeedmph"] = wind_speed
 
         if wind_gust_entity:
-            data = self._query_latest_value(wind_gust_entity, "mph")
+            data = latest_values.get((wind_gust_entity, "mph"))
             if data:
                 result["windgustmph"] = round_value(data[0], 1)
 
         if wind_dir_entity:
-            data = self._query_latest_value(wind_dir_entity, "°")
+            data = latest_values.get((wind_dir_entity, "°"))
             if data:
                 wind_dir = round_value(data[0], 0)
                 result["winddir"] = wind_dir
@@ -199,9 +274,8 @@ from(bucket: "{bucket}")
             result["winddir_pretty"] = format_wind_description(wind_speed, wind_dir)
 
         # Pressure (inHg)
-        pressure_entity = entities.get("pressure")
         if pressure_entity:
-            data = self._query_latest_value(pressure_entity, "inHg")
+            data = latest_values.get((pressure_entity, "inHg"))
             if data:
                 current_pressure = round_value(data[0], 2)
                 result["baromrelin"] = current_pressure
@@ -214,23 +288,20 @@ from(bucket: "{bucket}")
                 )
 
         # Rain (in)
-        rain_entity = entities.get("daily_rain")
         if rain_entity:
-            data = self._query_latest_value(rain_entity, "in")
+            data = latest_values.get((rain_entity, "in"))
             if data:
                 result["dailyrainin"] = round_value(data[0], 3)
 
         # UV index
-        uv_entity = entities.get("uv_index")
         if uv_entity:
-            data = self._query_latest_value(uv_entity, "Index")
+            data = latest_values.get((uv_entity, "Index"))
             if data:
                 result["uv"] = round_value(data[0], 0)
 
         # Solar radiation (W/m²)
-        solar_rad_entity = entities.get("solar_radiation")
         if solar_rad_entity:
-            data = self._query_latest_value(solar_rad_entity, "W/m²")
+            data = latest_values.get((solar_rad_entity, "W/m²"))
             if data:
                 result["solarradiation"] = round_value(data[0], 1)
 
