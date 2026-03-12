@@ -91,7 +91,10 @@ from(bucket: "{bucket}")
         formatted_timestamp = local_now.strftime("%A, %B %-d, %-I:%M %p")
 
         # Build result with stringified arrays for each entity
-        result = {"current_timestamp": formatted_timestamp}
+        result = {
+            "current_timestamp": formatted_timestamp,
+            "display_timezone": self.get_timezone(),
+        }
 
         for entity_id, data in sensors_data.items():
             # JavaScript-compatible string representation

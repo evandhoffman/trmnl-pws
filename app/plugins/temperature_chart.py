@@ -86,6 +86,7 @@ from(bucket: "{bucket}")
 
         return {
             "current_timestamp": formatted_timestamp,
+            "display_timezone": self.get_timezone(),
             f"js_{outdoor_temp_entity}": js_data_str,
         }
 
