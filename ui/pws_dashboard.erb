@@ -8,7 +8,7 @@
           <div class="content">
             <span class="value value--xxxlarge">{{tempf | round}}°F</span>
             <span class="label w--full">
-              Wind {{winddir_pretty}}
+              Outdoor Temperature
             </span>
           </div>
         </div>
@@ -51,11 +51,11 @@
           <div class="item">
             <div class="meta"></div>
             <div class="icon">
-              <img class="weather-icon" src="/images/weather/wi-hot.svg" />
+              <img class="weather-icon" src="/images/weather/wi-strong-wind.svg" />
             </div>
             <div class="content">
-              <span class="value value--small">{{uv | round}}</span>
-              <span class="label">UV Index</span>
+              <span class="value value--xsmall">{{windspeedmph | round}} / {{windgustmph | round}} mph</span>
+              <span class="label">{{winddir_pretty}}</span>
             </div>
           </div>
         </div>
