@@ -87,7 +87,7 @@ from(bucket: "{bucket}")
         return {
             "current_timestamp": formatted_timestamp,
             "display_timezone": self.get_timezone(),
-            f"js_{outdoor_temp_entity}": js_data_str,
+            "js_temperature_data": js_data_str,
         }
 
     def get_webhook_id(self) -> str:
