@@ -129,7 +129,7 @@
           xtype: "datetime",
           library: {
             time: {
-              timezone: "America/New_York"
+              timezone: "{{display_timezone}}"
             },
             chart: {
               title: {
@@ -193,7 +193,7 @@
                   color: "#000000"
                 },
                 formatter: function() {
-                  return moment.tz(this.value, "America/New_York").format("HH:mm");
+                  return moment.tz(this.value, "{{display_timezone}}").format("HH:mm");
                 }
               },
               lineWidth: 0,
