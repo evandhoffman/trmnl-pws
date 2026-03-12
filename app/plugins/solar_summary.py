@@ -42,7 +42,6 @@ class SolarSummaryPlugin(BasePlugin):
         flux_query = f"""
 import "date"
 import "timezone"
-import "strings"
 
 option location = timezone.location(name: "{query_tz}")
 
@@ -58,18 +57,10 @@ from(bucket: "{bucket}")
         r._field == "value"
     )
     |> aggregateWindow(every: 1d, fn: integral, createEmpty: false)
-    |> map(fn: (r) => ({{
-        r with
-            _value: r._value / 3600.0,
-            entity_id: strings.replaceAll(v: r.entity_id, t: "bellmore_", u: "home_")
-    }}))
+    |> map(fn: (r) => ({{r with _value: r._value / 3600.0}}))
         """
 
-        logger.debug(f"Executing Flux query for solar summary")
-        logger.debug(f"Flux query:\n{flux_query}")
-
-        logger.debug(f"Executing Flux query for solar summary")
-        logger.debug(f"Query: {flux_query}")
+        logger.debug(f"Executing Flux query for solar summary:\n{flux_query}")
 
         # Execute query
         query_api = self.influx_client.query_api()

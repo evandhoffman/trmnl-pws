@@ -5,7 +5,7 @@ State management for tracking last webhook update times.
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -66,7 +66,7 @@ def ensure_webhook_initialized(state, webhook_id):
         bool: True if state was modified, False otherwise
     """
     if webhook_id not in state:
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         timestamp_str = now.isoformat()
         state[webhook_id] = {"timestamp": timestamp_str, "failure_count": 0}
         logger.info(
@@ -114,7 +114,7 @@ def get_last_update_time(state, webhook_id):
     return None
 
 
-def record_update(state, webhook_id, success=True):
+def record_update(state, webhook_id, success=True, poll_interval=300):
     """
     Record that a webhook was just updated.
 
@@ -123,7 +123,7 @@ def record_update(state, webhook_id, success=True):
         webhook_id: The webhook ID that was updated
         success: Whether the update was successful (resets failure count)
     """
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     timestamp_str = now.isoformat()
 
     # Get current failure count
@@ -148,7 +148,7 @@ def record_update(state, webhook_id, success=True):
             f"Recorded successful update for webhook {webhook_id[:8]}... at {timestamp_str} UTC"
         )
     else:
-        backoff = calculate_backoff(failure_count, 300)  # Using default poll_interval
+        backoff = calculate_backoff(failure_count, poll_interval)
         logger.info(
             f"Recorded failed update for webhook {webhook_id[:8]}... at {timestamp_str} UTC "
             f"(failure #{failure_count}, next retry in {backoff}s)"
@@ -171,7 +171,7 @@ def seconds_since_last_update(state, webhook_id):
     if last_update is None:
         return None
 
-    elapsed = (datetime.utcnow() - last_update).total_seconds()
+    elapsed = (datetime.now(timezone.utc) - last_update).total_seconds()
     return elapsed
 
 

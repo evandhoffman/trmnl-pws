@@ -27,6 +27,7 @@ plugins:
       feels_like: evan_s_pws_feels_like
       pressure: evan_s_pws_relative_pressure
       daily_rain: evan_s_pws_daily_rain
+      precipitation_intensity: evan_s_pws_precipitation_intensity
       uv_index: evan_s_pws_uv_index
       solar_radiation: evan_s_pws_irradiance
 

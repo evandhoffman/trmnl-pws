@@ -211,17 +211,17 @@ def main():
                     # Always record the attempt timestamp
                     # For rate_limited errors, this enables exponential backoff
                     if status == "success":
-                        record_update(state, webhook_id, success=True)
+                        record_update(state, webhook_id, success=True, poll_interval=poll_interval)
                         iteration_state_modified = True
                         logger.info(f"✅ {plugin.plugin_name} completed successfully")
                     elif status == "rate_limited":
-                        record_update(state, webhook_id, success=False)
+                        record_update(state, webhook_id, success=False, poll_interval=poll_interval)
                         iteration_state_modified = True
                         logger.warning(
                             f"🚫 {plugin.plugin_name} rate limited (will use backoff)"
                         )
                     else:
-                        record_update(state, webhook_id, success=False)
+                        record_update(state, webhook_id, success=False, poll_interval=poll_interval)
                         iteration_state_modified = True
                         logger.warning(f"❌ {plugin.plugin_name} failed to post webhook")
 

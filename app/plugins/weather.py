@@ -56,7 +56,7 @@ from(bucket: "{bucket}")
 
         return None
 
-    def _query_last_rain(self) -> Optional[datetime]:
+    def _query_last_rain(self, entity_id: str) -> Optional[datetime]:
         """
         Query the last time it rained (precipitation_intensity > 0)
 
@@ -73,7 +73,7 @@ option location = timezone.location(name: "{query_tz}")
 
 from(bucket: "{bucket}")
     |> range(start: -30d)
-    |> filter(fn: (r) => r["entity_id"] == "evan_s_pws_precipitation_intensity")
+    |> filter(fn: (r) => r["entity_id"] == "{entity_id}")
     |> filter(fn: (r) => r["_field"] == "value")
     |> filter(fn: (r) => r["_value"] > 0.0)
     |> last()
@@ -186,7 +186,8 @@ from(bucket: "{bucket}")
                 result["solarradiation"] = round_value(data[0], 1)
 
         # Query last rain time
-        last_rain_time = self._query_last_rain()
+        precip_entity = entities.get("precipitation_intensity")
+        last_rain_time = self._query_last_rain(precip_entity) if precip_entity else None
         if last_rain_time:
             result["last_rain_date_pretty"] = format_relative_time(last_rain_time)
 
