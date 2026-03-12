@@ -89,11 +89,13 @@ from(bucket: "{bucket}")
         local_tz = pytz.timezone(self.get_timezone())
         local_now = datetime.now(timezone.utc).astimezone(local_tz)
         formatted_timestamp = local_now.strftime("%A, %B %-d, %-I:%M %p")
+        daily_energy = self._query_daily_energy(entities.get("solar_power"))
 
         # Build result with stringified arrays for each entity
         result = {
             "current_timestamp": formatted_timestamp,
             "display_timezone": self.get_timezone(),
+            "str_daily_energy": round_value(daily_energy, 1),
         }
 
         for entity_id, data in sensors_data.items():
@@ -103,6 +105,37 @@ from(bucket: "{bucket}")
 
         logger.info(f"Collected solar power data for {len(sensors_data)} sensors")
         return result
+
+    def _query_daily_energy(self, solar_entity_id: str) -> float:
+        """Query today's cumulative solar generation in kWh."""
+        if not solar_entity_id:
+            return 0.0
+
+        bucket = self.get_bucket()
+        query_tz = self.get_influx_query_timezone()
+        flux_query = f"""
+import "date"
+import "timezone"
+
+option location = timezone.location(name: "{query_tz}")
+
+from(bucket: "{bucket}")
+    |> range(start: date.truncate(t: now(), unit: 1d), stop: now())
+    |> filter(fn: (r) => r["entity_id"] == "{solar_entity_id}")
+    |> filter(fn: (r) => r["_field"] == "value")
+    |> filter(fn: (r) => r["_measurement"] == "kW")
+    |> filter(fn: (r) => r["domain"] == "sensor")
+    |> integral(unit: 1h)
+        """
+
+        tables = self.influx_client.query_api().query(flux_query)
+        for table in tables:
+            for record in table.records:
+                value = record.get_value()
+                if value is not None:
+                    return float(value)
+
+        return 0.0
 
     def get_webhook_id(self) -> str:
         """Get the solar power webhook ID"""
