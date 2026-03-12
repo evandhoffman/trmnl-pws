@@ -37,8 +37,13 @@ class TemperatureChartPlugin(BasePlugin):
         bucket = self.get_bucket()
         query_tz = self.get_influx_query_timezone()
 
-        # Get outdoor temperature entity
+        # Get temperature entities
         outdoor_temp_entity = entities.get("outdoor_temp", "evan_s_pws_temperature")
+        indoor_temp_entity = entities.get("indoor_temp")
+        entity_filters = [f'r["entity_id"] == "{outdoor_temp_entity}"']
+        if indoor_temp_entity:
+            entity_filters.append(f'r["entity_id"] == "{indoor_temp_entity}"')
+        entity_filter = " or ".join(entity_filters)
 
         flux_query = f"""
 import "timezone"
@@ -50,7 +55,7 @@ from(bucket: "{bucket}")
     |> filter(fn: (r) => r["_measurement"] == "°F")
     |> filter(fn: (r) => r["_field"] == "value")
     |> filter(fn: (r) => r["domain"] == "sensor")
-    |> filter(fn: (r) => r["entity_id"] == "{outdoor_temp_entity}")
+    |> filter(fn: (r) => {entity_filter})
     |> aggregateWindow(every: {aggregation_minutes}m, fn: mean, createEmpty: false)
         """
 
@@ -61,20 +66,28 @@ from(bucket: "{bucket}")
         tables = query_api.query(flux_query)
 
         # Process results into Highcharts format
-        temp_data = []
+        outdoor_temp_data = []
+        indoor_temp_data = []
         for table in tables:
             for record in table.records:
+                entity_id = record.values.get("entity_id")
                 timestamp = record.get_time()
                 value = record.get_value()
 
                 if value is not None and -50 < value < 150:  # Sanity check
                     timestamp_ms = timestamp_to_milliseconds(timestamp)
-                    temp_data.append([timestamp_ms, round_value(value, 1)])
+                    if entity_id == indoor_temp_entity:
+                        indoor_temp_data.append([timestamp_ms, round_value(value, 1)])
+                    else:
+                        outdoor_temp_data.append([timestamp_ms, round_value(value, 1)])
 
         # Sort by timestamp
-        temp_data.sort(key=lambda x: x[0])
+        outdoor_temp_data.sort(key=lambda x: x[0])
+        indoor_temp_data.sort(key=lambda x: x[0])
 
-        logger.info(f"Collected {len(temp_data)} temperature readings")
+        logger.info(
+            f"Collected {len(outdoor_temp_data)} outdoor and {len(indoor_temp_data)} indoor temperature readings"
+        )
 
         # Format current timestamp
         local_tz = pytz.timezone(self.get_timezone())
@@ -82,12 +95,14 @@ from(bucket: "{bucket}")
         formatted_timestamp = local_now.strftime("%A, %B %-d, %-I:%M %p")
 
         # Format data for webhook (JavaScript-compatible string for Highcharts)
-        js_data_str = json.dumps(temp_data)
+        js_data_str = json.dumps(outdoor_temp_data)
+        js_indoor_data_str = json.dumps(indoor_temp_data)
 
         return {
             "current_timestamp": formatted_timestamp,
             "display_timezone": self.get_timezone(),
             "js_temperature_data": js_data_str,
+            "js_indoor_temperature_data": js_indoor_data_str,
         }
 
     def get_webhook_id(self) -> str:

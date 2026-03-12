@@ -19,9 +19,10 @@
 
   <script type="text/javascript">
     var data = {{js_temperature_data}};
+    var indoorData = {{js_indoor_temperature_data}};
 
     // Find temperature range for better y-axis setup
-    const temperatures = data.map(point => point[1]);
+    const temperatures = data.concat(indoorData).map(point => point[1]);
     let minTemp = Math.min(...temperatures);
     let maxTemp = Math.max(...temperatures);
 
@@ -33,13 +34,16 @@
     var createChart = function() {
       new Chartkick["LineChart"](
         "weather-chart",
-        data,
+        [
+          {name: "Outdoor", data: data, dashStyle: "solid"},
+          {name: "Indoor", data: indoorData, dashStyle: "shortdash"}
+        ].filter(series => series.data.length > 0),
         {
           adapter: "highcharts",
           suffix: "°F",
           thousands: ",",
           points: false,
-          colors: ["black"],
+          colors: ["black", "#666666"],
           curve: true,
           xtype: "datetime",
           library: {
@@ -48,7 +52,7 @@
             },
             chart: {
               title: {
-                text: 'Current Temperature'
+                text: 'Indoor / Outdoor Temperature'
               },
               height: 360,
               style: {
@@ -62,7 +66,11 @@
                 marker: {
                   enabled: false
                 },
+                showInLegend: true,
               }
+            },
+            legend: {
+              enabled: indoorData.length > 0
             },
             yAxis: {
               title: {
