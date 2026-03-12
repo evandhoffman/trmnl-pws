@@ -88,6 +88,47 @@ from(bucket: "{bucket}")
 
         return None
 
+    def _query_latest_value_before(
+        self, entity_id: str, measurement: str, hours_ago: int
+    ) -> Optional[tuple]:
+        """Query the latest value available before a cutoff time."""
+        bucket = self.get_bucket()
+        query_tz = self.get_influx_query_timezone()
+
+        flux_query = f"""
+import "timezone"
+
+option location = timezone.location(name: "{query_tz}")
+
+from(bucket: "{bucket}")
+    |> range(start: -24h, stop: -{hours_ago}h)
+    |> filter(fn: (r) => r["entity_id"] == "{entity_id}")
+    |> filter(fn: (r) => r["_measurement"] == "{measurement}")
+    |> filter(fn: (r) => r["_field"] == "value")
+    |> last()
+        """
+
+        tables = self.influx_client.query_api().query(flux_query)
+        for table in tables:
+            for record in table.records:
+                return (record.get_value(), record.get_time())
+
+        return None
+
+    def _get_pressure_trend(
+        self, current_pressure: float, prior_pressure: Optional[float]
+    ) -> str:
+        """Classify pressure movement over roughly three hours."""
+        if prior_pressure is None:
+            return "→"
+
+        delta = current_pressure - prior_pressure
+        if delta > 0.06:
+            return "↑"
+        if delta < -0.06:
+            return "↓"
+        return "→"
+
     def collect_data(self) -> Dict[str, Any]:
         """
         Query InfluxDB for weather data and format for TRMNL
@@ -162,7 +203,15 @@ from(bucket: "{bucket}")
         if pressure_entity:
             data = self._query_latest_value(pressure_entity, "inHg")
             if data:
-                result["baromrelin"] = round_value(data[0], 2)
+                current_pressure = round_value(data[0], 2)
+                result["baromrelin"] = current_pressure
+                prior_pressure = self._query_latest_value_before(
+                    pressure_entity, "inHg", 3
+                )
+                result["pressure_trend"] = self._get_pressure_trend(
+                    current_pressure,
+                    round_value(prior_pressure[0], 2) if prior_pressure else None,
+                )
 
         # Rain (in)
         rain_entity = entities.get("daily_rain")
