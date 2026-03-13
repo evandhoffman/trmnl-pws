@@ -6,7 +6,8 @@ import math
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any
-from zoneinfo import ZoneInfo
+
+import pytz
 
 from app.utils.formatting import timestamp_to_milliseconds
 
@@ -43,9 +44,9 @@ def _solar_events_for_date(
     local_date: date, latitude: float, longitude: float, tz_name: str
 ) -> dict[str, datetime]:
     latitude_rad = math.radians(latitude)
-    tz = ZoneInfo(tz_name)
+    tz = pytz.timezone(tz_name)
     west_longitude = -longitude
-    local_midnight = datetime.combine(local_date, time.min, tzinfo=tz)
+    local_midnight = tz.localize(datetime.combine(local_date, time.min))
     utc_midnight = local_midnight.astimezone(timezone.utc)
     julian_day = utc_midnight.timestamp() / 86400 + JULIAN_UNIX_EPOCH
 
@@ -102,7 +103,7 @@ def get_solar_events_between(
     if end < start:
         start, end = end, start
 
-    tz = ZoneInfo(tz_name)
+    tz = pytz.timezone(tz_name)
     current_date = start.astimezone(tz).date()
     end_date = end.astimezone(tz).date()
     events: list[SolarEvent] = []

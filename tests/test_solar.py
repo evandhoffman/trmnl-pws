@@ -1,5 +1,6 @@
 from datetime import datetime, timezone
 
+import app.utils.solar as solar_module
 from app.utils.solar import get_solar_events_between
 
 
@@ -48,3 +49,23 @@ class TestGetSolarEventsBetween:
 
         timestamps = [event["timestamp_ms"] for event in events]
         assert timestamps == sorted(timestamps)
+
+    def test_uses_pytz_timezone_lookup(self, monkeypatch):
+        seen = []
+        original_timezone = solar_module.pytz.timezone
+
+        def tracking_timezone(name):
+            seen.append(name)
+            return original_timezone(name)
+
+        monkeypatch.setattr(solar_module.pytz, "timezone", tracking_timezone)
+
+        get_solar_events_between(
+            datetime(2024, 6, 15, 4, 0, tzinfo=timezone.utc),
+            datetime(2024, 6, 16, 4, 0, tzinfo=timezone.utc),
+            latitude=40.7128,
+            longitude=-74.0060,
+            tz_name="America/New_York",
+        )
+
+        assert "America/New_York" in seen
