@@ -66,7 +66,10 @@ def log_startup_solar_events(config: dict) -> None:
 
     logger.info(
         "Startup solar events: %s",
-        ", ".join(f"{event['label']}={datetime.fromtimestamp(event['timestamp_ms'] / 1000, tz).strftime('%-I:%M %p')}" for event in events) or "none",
+        ", ".join(
+            f"{event['label']}={datetime.fromtimestamp(event['timestamp_ms'] / 1000, tz).strftime('%Y-%m-%d %-I:%M %p')}"
+            for event in events
+        ) or "none",
     )
 
 
