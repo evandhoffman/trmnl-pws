@@ -6,7 +6,7 @@
 
   <div class="view view--full">
 
-    <div id="weather-chart" style="width: 100%"></div>
+    <div id="weather-chart" style="width: 100%; height: 408px;"></div>
 
     <div class="title_bar">
       <img class="image" src="https://cdn-icons-png.flaticon.com/512/16342/16342339.png" />
@@ -33,21 +33,7 @@
         return [];
       }
 
-      const lines = [];
-      const startTemp = Math.ceil(minimumTemp);
-
-      // Use explicit horizontal hatch lines because TRMNL's renderer drops plotBand fills.
-      for (let value = startTemp; value < 32; value += 2) {
-        lines.push({
-          value: value,
-          color: value % 4 === 0 ? "#b5b5b5" : "#d4d4d4",
-          width: value % 4 === 0 ? 2 : 1,
-          dashStyle: value % 4 === 0 ? "Solid" : "ShortDot",
-          zIndex: 0
-        });
-      }
-
-      lines.push({
+      return [{
         value: 32,
         color: "black",
         width: 2,
@@ -62,9 +48,7 @@
             fontWeight: "bold"
           }
         }
-      });
-
-      return lines;
+      }];
     }
 
     const freezingHatchLines = buildFreezingHatchLines(minTemp);
@@ -91,9 +75,13 @@
             },
             chart: {
               title: {
-                text: 'Indoor / Outdoor Temperature'
+                text: null
               },
-              height: 360,
+              height: 408,
+              spacingTop: 6,
+              spacingBottom: 8,
+              spacingLeft: 0,
+              spacingRight: 0,
               style: {
                 fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
               }
