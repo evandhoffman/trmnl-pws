@@ -5,6 +5,9 @@ from app.utils.solar import get_solar_events_between
 
 
 class TestGetSolarEventsBetween:
+    USER_LATITUDE = 40.74276375822451
+    USER_LONGITUDE = -73.98457100144142
+
     def test_returns_sunrise_noon_and_sunset_for_full_local_day(self):
         start = datetime(2024, 6, 15, 4, 0, tzinfo=timezone.utc)
         end = datetime(2024, 6, 16, 4, 0, tzinfo=timezone.utc)
@@ -12,8 +15,8 @@ class TestGetSolarEventsBetween:
         events = get_solar_events_between(
             start,
             end,
-            latitude=40.7128,
-            longitude=-74.0060,
+            latitude=self.USER_LATITUDE,
+            longitude=self.USER_LONGITUDE,
             tz_name="America/New_York",
         )
 
@@ -28,8 +31,8 @@ class TestGetSolarEventsBetween:
         events = get_solar_events_between(
             datetime(2024, 6, 15, 0, 0, tzinfo=timezone.utc),
             datetime(2024, 6, 15, 1, 0, tzinfo=timezone.utc),
-            latitude=40.7128,
-            longitude=-74.0060,
+            latitude=self.USER_LATITUDE,
+            longitude=self.USER_LONGITUDE,
             tz_name="America/New_York",
         )
 
@@ -42,8 +45,8 @@ class TestGetSolarEventsBetween:
         events = get_solar_events_between(
             start,
             end,
-            latitude=40.7128,
-            longitude=-74.0060,
+            latitude=self.USER_LATITUDE,
+            longitude=self.USER_LONGITUDE,
             tz_name="America/New_York",
         )
 
@@ -63,9 +66,23 @@ class TestGetSolarEventsBetween:
         get_solar_events_between(
             datetime(2024, 6, 15, 4, 0, tzinfo=timezone.utc),
             datetime(2024, 6, 16, 4, 0, tzinfo=timezone.utc),
-            latitude=40.7128,
-            longitude=-74.0060,
+            latitude=self.USER_LATITUDE,
+            longitude=self.USER_LONGITUDE,
             tz_name="America/New_York",
         )
 
         assert "America/New_York" in seen
+
+    def test_returns_non_empty_event_payload_for_user_coordinates(self):
+        events = get_solar_events_between(
+            datetime(2024, 6, 15, 4, 0, tzinfo=timezone.utc),
+            datetime(2024, 6, 16, 4, 0, tzinfo=timezone.utc),
+            latitude=self.USER_LATITUDE,
+            longitude=self.USER_LONGITUDE,
+            tz_name="America/New_York",
+        )
+
+        assert events
+        assert any(event["kind"] == "solar_noon" for event in events)
+        assert all(event["timestamp_ms"] > 0 for event in events)
+        assert all(event["time_pretty"] for event in events)
