@@ -1,6 +1,27 @@
 <!-- https://trmnl.com/plugin_settings/18870/markup/edit?size=markup_full -->
 <div class="view view--full">
   <div class="layout layout--col">
+    <div class="grid grid--cols-3 gap--small" style="margin-bottom: 8px;">
+      <div class="item" style="background-color: #f2f2f2; border: 1px solid #d8d8d8;">
+        <div class="content">
+          <span class="value value--xsmall">Trend Window</span>
+          <span class="label">{{temp_sparkline_start}} to {{temp_sparkline_end}}</span>
+        </div>
+      </div>
+      <div class="item" style="background-color: #f2f2f2; border: 1px solid #d8d8d8;">
+        <div class="content">
+          <span class="value value--xsmall">Pressure</span>
+          <span class="label">{{pressure_trend_label}} over 3h</span>
+        </div>
+      </div>
+      <div class="item" style="background-color: #f2f2f2; border: 1px solid #d8d8d8;">
+        <div class="content">
+          <span class="value value--xsmall">Wind</span>
+          <span class="label">{{wind_compact}}</span>
+        </div>
+      </div>
+    </div>
+
     <div class="grid">
       <div class="col col--span-3 col--end">
         <div class="item h--full">
@@ -20,8 +41,12 @@
                   x="{{temp_sparkline_min_x}}"
                   y="{{temp_sparkline_min_y}}"
                   fill="currentColor"
-                  opacity="0.65"
-                  font-size="14"
+                  opacity="0.85"
+                  font-size="13"
+                  font-weight="600"
+                  stroke="#ececec"
+                  stroke-width="3"
+                  paint-order="stroke fill"
                   text-anchor="middle">
                   {{temp_sparkline_min}}
                 </text>
@@ -29,8 +54,12 @@
                   x="{{temp_sparkline_max_x}}"
                   y="{{temp_sparkline_max_y}}"
                   fill="currentColor"
-                  opacity="0.65"
-                  font-size="14"
+                  opacity="0.85"
+                  font-size="13"
+                  font-weight="600"
+                  stroke="#ececec"
+                  stroke-width="3"
+                  paint-order="stroke fill"
                   text-anchor="middle">
                   {{temp_sparkline_max}}
                 </text>
@@ -61,55 +90,55 @@
       </div>
       <div class="col col--span-6 col--end">
         <div class="grid grid--cols-2 gap--medium">
-          <div class="item">
+          <div class="item" style="background-color: #f6f6f6; border: 1px solid #dcdcdc;">
             <div class="content">
               <span class="value value--xsmall">Pressure {{baromrelin}} inHg</span>
               <span class="label">{{pressure_trend_label}} over 3h</span>
             </div>
           </div>
-          <div class="item">
+          <div class="item" style="background-color: #efefef; border: 1px solid #dcdcdc;">
             <div class="content">
               <span class="value value--xsmall">{{wind_compact}}</span>
               <span class="label">{{wind_gust_pretty}}</span>
             </div>
           </div>
-          <div class="item">
+          <div class="item" style="background-color: #f6f6f6; border: 1px solid #dcdcdc;">
             <div class="content">
               <span class="value value--xsmall">{{feelsLike | round}}°</span>
               <span class="label">Feels Like</span>
             </div>
           </div>
-          <div class="item">
+          <div class="item" style="background-color: #efefef; border: 1px solid #dcdcdc;">
             <div class="content">
               <span class="value value--xsmall">{{humidity}}%</span>
               <span class="label">Humidity</span>
             </div>
           </div>
-          <div class="item">
+          <div class="item" style="background-color: #f6f6f6; border: 1px solid #dcdcdc;">
             <div class="content">
               <span class="value value--xsmall">{{dewPoint | round}}°</span>
               <span class="label">Dew Point</span>
             </div>
           </div>
-          <div class="item">
+          <div class="item" style="background-color: #efefef; border: 1px solid #dcdcdc;">
             <div class="content">
               <span class="value value--xsmall">{{uv | round}}</span>
               <span class="label">UV Index</span>
             </div>
           </div>
-          <div class="item">
+          <div class="item" style="background-color: #f6f6f6; border: 1px solid #dcdcdc;">
             <div class="content">
               <span class="value value--xsmall">{{solarradiation | round}} W/m²</span>
               <span class="label">Solar Radiation</span>
             </div>
           </div>
-          <div class="item">
+          <div class="item" style="background-color: #efefef; border: 1px solid #dcdcdc;">
             <div class="content">
               <span class="value value--xsmall">{{dailyrainin | round: 2}} in</span>
               <span class="label">Rain Today</span>
             </div>
           </div>
-          <div class="item" style="grid-column: span 2;">
+          <div class="item" style="grid-column: span 2; background-color: #f1f1f1; border: 1px solid #dcdcdc;">
             <div class="content">
               <span class="value value--xsmall">{{last_rain_date_pretty}}</span>
               <span class="label">Last Rain</span>
