@@ -263,6 +263,8 @@ from(bucket: "{bucket}")
             "points": "",
             "min_value": "",
             "max_value": "",
+            "min_time": "",
+            "max_time": "",
             "start_time": "",
             "end_time": "",
             "min_x": padding,
@@ -298,6 +300,12 @@ from(bucket: "{bucket}")
             "points": " ".join(points),
             "min_value": f"{min_value:.0f}°",
             "max_value": f"{max_value:.0f}°",
+            "min_time": format_timestamp_for_display(
+                readings[min_index][0], self.get_timezone(), "%-I:%M%p"
+            ).lower(),
+            "max_time": format_timestamp_for_display(
+                readings[max_index][0], self.get_timezone(), "%-I:%M%p"
+            ).lower(),
             "start_time": format_timestamp_for_display(
                 readings[0][0], self.get_timezone(), "%-I:%M%p"
             ).lower(),
@@ -472,6 +480,8 @@ from(bucket: "{bucket}")
             result["temp_sparkline_points"] = sparkline["points"]
             result["temp_sparkline_min"] = sparkline["min_value"]
             result["temp_sparkline_max"] = sparkline["max_value"]
+            result["temp_sparkline_min_time"] = sparkline["min_time"]
+            result["temp_sparkline_max_time"] = sparkline["max_time"]
             result["temp_sparkline_start"] = sparkline["start_time"]
             result["temp_sparkline_end"] = sparkline["end_time"]
             result["temp_sparkline_min_x"] = sparkline["min_x"]
@@ -482,6 +492,8 @@ from(bucket: "{bucket}")
             result["temp_sparkline_points"] = ""
             result["temp_sparkline_min"] = ""
             result["temp_sparkline_max"] = ""
+            result["temp_sparkline_min_time"] = ""
+            result["temp_sparkline_max_time"] = ""
             result["temp_sparkline_start"] = ""
             result["temp_sparkline_end"] = ""
             result["temp_sparkline_min_x"] = "8"
