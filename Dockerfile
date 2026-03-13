@@ -1,22 +1,25 @@
-FROM python:3.11-slim
+# Builder stage: install dependencies into a virtual environment
+FROM cgr.dev/chainguard/python:latest-dev AS builder
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN python -m venv /app/venv && \
+    /app/venv/bin/pip install --no-cache-dir -r requirements.txt
+
+# Runtime stage: minimal Chainguard image with no dev tools
+FROM cgr.dev/chainguard/python:latest
 
 WORKDIR /app
 
 # Default path for persisted state lock file
 ENV STATE_LOCK_PATH=/tmp/last_trmnl_update.lock
+ENV PATH="/app/venv/bin:$PATH"
 
-# Install tini for proper signal handling
-RUN apt-get update && apt-get install -y tini && rm -rf /var/lib/apt/lists/*
-
-# Copy and install dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+# Copy installed venv from builder (owned by root, world-readable — fine for any runtime UID)
+COPY --from=builder /app/venv /app/venv
 
 # Copy application code
 COPY app/ ./app/
 
-# Use tini as entrypoint for proper signal handling
-ENTRYPOINT ["/usr/bin/tini", "--"]
-
-# Run the application
 CMD ["python", "-m", "app.main"]
