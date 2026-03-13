@@ -2,10 +2,14 @@
 
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional, Iterable
+from typing import Dict, Any, Optional, Iterable, List
 from app.plugins import BasePlugin
 from app.utils.formatting import format_timestamp_for_display, format_relative_time
-from app.utils.conversions import format_wind_description, round_value
+from app.utils.conversions import (
+    format_wind_description,
+    format_compact_wind,
+    round_value,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -173,6 +177,71 @@ from(bucket: "{bucket}")
             return "↓"
         return "→"
 
+    def _get_pressure_trend_label(self, trend_symbol: str) -> str:
+        """Convert pressure trend arrows into compact labels."""
+        if trend_symbol == "↑":
+            return "Rising"
+        if trend_symbol == "↓":
+            return "Falling"
+        return "Steady"
+
+    def _query_temperature_history(
+        self,
+        entity_id: str,
+        measurement: str,
+        hours_back: int = 3,
+        aggregation_minutes: int = 15,
+    ) -> List[float]:
+        """Query recent temperature history for sparkline rendering."""
+        bucket = self.get_bucket()
+        query_tz = self.get_influx_query_timezone()
+
+        flux_query = f"""
+import "timezone"
+
+option location = timezone.location(name: "{query_tz}")
+
+from(bucket: "{bucket}")
+    |> range(start: -{hours_back}h)
+    |> filter(fn: (r) => r["entity_id"] == "{entity_id}")
+    |> filter(fn: (r) => r["_measurement"] == "{measurement}")
+    |> filter(fn: (r) => r["_field"] == "value")
+    |> aggregateWindow(every: {aggregation_minutes}m, fn: mean, createEmpty: false)
+        """
+
+        values = []
+        tables = self.influx_client.query_api().query(flux_query)
+        for table in tables:
+            for record in table.records:
+                value = record.get_value()
+                if value is not None and -50 < value < 150:
+                    values.append((record.get_time(), round_value(value, 1)))
+
+        values.sort(key=lambda row: row[0])
+        return [row[1] for row in values]
+
+    def _build_sparkline_points(
+        self, values: List[float], width: int = 312, height: int = 108, padding: int = 8
+    ) -> str:
+        """Convert a numeric series into compact SVG polyline points."""
+        if len(values) < 2:
+            return ""
+
+        min_value = min(values)
+        max_value = max(values)
+        value_span = max(max_value - min_value, 0.1)
+        x_span = max(width - (padding * 2), 1)
+        y_span = max(height - (padding * 2), 1)
+
+        points = []
+        for index, value in enumerate(values):
+            x = padding + (x_span * index / (len(values) - 1))
+            normalized = (value - min_value) / value_span
+            y = height - padding - (normalized * y_span)
+            points.append(f"{x:.1f},{y:.1f}")
+
+        return " ".join(points)
+
     def collect_data(self) -> Dict[str, Any]:
         """
         Query InfluxDB for weather data and format for TRMNL
@@ -272,6 +341,14 @@ from(bucket: "{bucket}")
         # Create formatted wind description
         if wind_speed is not None and wind_dir is not None:
             result["winddir_pretty"] = format_wind_description(wind_speed, wind_dir)
+            result["wind_compact"] = format_compact_wind(wind_speed, wind_dir)
+        elif wind_speed is not None:
+            result["wind_compact"] = f"{round_value(wind_speed, 0):.0f} mph"
+
+        if "windgustmph" in result:
+            result["wind_gust_pretty"] = f"Gust {round_value(result['windgustmph'], 0):.0f} mph"
+        else:
+            result["wind_gust_pretty"] = "Gust --"
 
         # Pressure (inHg)
         if pressure_entity:
@@ -285,6 +362,9 @@ from(bucket: "{bucket}")
                 result["pressure_trend"] = self._get_pressure_trend(
                     current_pressure,
                     round_value(prior_pressure[0], 2) if prior_pressure else None,
+                )
+                result["pressure_trend_label"] = self._get_pressure_trend_label(
+                    result["pressure_trend"]
                 )
 
         # Rain (in)
@@ -310,6 +390,30 @@ from(bucket: "{bucket}")
         last_rain_time = self._query_last_rain(precip_entity) if precip_entity else None
         if last_rain_time:
             result["last_rain_date_pretty"] = format_relative_time(last_rain_time)
+        else:
+            result["last_rain_date_pretty"] = "No recent rain"
+
+        outdoor_temp_entity = entities.get("outdoor_temp")
+        if outdoor_temp_entity:
+            sparkline_values = self._query_temperature_history(outdoor_temp_entity, "°F")
+            result["temp_sparkline_points"] = self._build_sparkline_points(
+                sparkline_values
+            )
+        else:
+            result["temp_sparkline_points"] = ""
+
+        result.setdefault("tempf", 0)
+        result.setdefault("tempinf", 0)
+        result.setdefault("humidityin", 0)
+        result.setdefault("feelsLike", 0)
+        result.setdefault("humidity", 0)
+        result.setdefault("dewPoint", 0)
+        result.setdefault("uv", 0)
+        result.setdefault("solarradiation", 0)
+        result.setdefault("dailyrainin", 0)
+        result.setdefault("wind_compact", "--")
+        result.setdefault("baromrelin", "--")
+        result.setdefault("pressure_trend_label", "Steady")
 
         # Add formatted current timestamp
         result["date_pretty"] = format_timestamp_for_display(
