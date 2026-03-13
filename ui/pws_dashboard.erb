@@ -24,7 +24,7 @@
         </div>
       </div>
       <div class="col col--span-6 col--end">
-        <div class="grid grid--cols-3 gap--small">
+        <div class="grid grid--cols-2 gap--medium">
           <div class="item">
             <div class="content">
               <span class="value value--xsmall">Pressure {{baromrelin}} inHg</span>
@@ -39,50 +39,44 @@
           </div>
           <div class="item">
             <div class="content">
-              <span class="value value--small">{{feelsLike | round}}°</span>
+              <span class="value value--xsmall">{{feelsLike | round}}°</span>
               <span class="label">Feels Like</span>
             </div>
           </div>
           <div class="item">
             <div class="content">
-              <span class="value value--small">{{humidity}}%</span>
+              <span class="value value--xsmall">{{humidity}}%</span>
               <span class="label">Humidity</span>
             </div>
           </div>
           <div class="item">
             <div class="content">
-              <span class="value value--small">{{dewPoint | round}}°</span>
+              <span class="value value--xsmall">{{dewPoint | round}}°</span>
               <span class="label">Dew Point</span>
             </div>
           </div>
           <div class="item">
             <div class="content">
-              <span class="value value--small">{{uv | round}}</span>
+              <span class="value value--xsmall">{{uv | round}}</span>
               <span class="label">UV Index</span>
             </div>
           </div>
           <div class="item">
             <div class="content">
-              <span class="value value--small">{{solarradiation | round}} W/m²</span>
+              <span class="value value--xsmall">{{solarradiation | round}} W/m²</span>
               <span class="label">Solar Radiation</span>
             </div>
           </div>
           <div class="item">
             <div class="content">
-              <span class="value value--small">{{dailyrainin | round: 2}} in</span>
+              <span class="value value--xsmall">{{dailyrainin | round: 2}} in</span>
               <span class="label">Rain Today</span>
             </div>
           </div>
-          <div class="item">
+          <div class="item" style="grid-column: span 2;">
             <div class="content">
-              <span class="value value--small">{{last_rain_date_pretty}}</span>
+              <span class="value value--xsmall">{{last_rain_date_pretty}}</span>
               <span class="label">Last Rain</span>
-            </div>
-          </div>
-          <div class="item" style="grid-column: span 3;">
-            <div class="content">
-              <span class="value value--small">{{date_pretty}}</span>
-              <span class="label">{{trmnl['plugin_settings']['instance_name']}}</span>
             </div>
           </div>
         </div>
@@ -91,7 +85,7 @@
 
     <div class="title_bar">
       <img class="image" src="https://cdn-icons-png.flaticon.com/512/16342/16342339.png" />
-      <h1 class="title">Weather Station</h1>
+      <h1 class="title">Last updated: {{date_pretty}}</h1>
       <span class="instance">{{trmnl['plugin_settings']['instance_name']}}</span>
     </div>
   </div>
