@@ -136,6 +136,37 @@ from(bucket: "{bucket}")
 
         return None
 
+    def _query_last_rain_from_daily_total(self, entity_id: str) -> Optional[datetime]:
+        """
+        Query the last time daily rain increased.
+
+        This is a fallback when precipitation_intensity is not configured
+        or does not produce usable non-zero samples.
+        """
+        bucket = self.get_bucket()
+        query_tz = self.get_influx_query_timezone()
+
+        flux_query = f"""
+import "timezone"
+
+option location = timezone.location(name: "{query_tz}")
+
+from(bucket: "{bucket}")
+    |> range(start: -365d)
+    |> filter(fn: (r) => r["entity_id"] == "{entity_id}")
+    |> filter(fn: (r) => r["_field"] == "value")
+    |> difference(nonNegative: true)
+    |> filter(fn: (r) => r["_value"] > 0.0)
+    |> last()
+        """
+
+        tables = self.influx_client.query_api().query(flux_query)
+        for table in tables:
+            for record in table.records:
+                return record.get_time()
+
+        return None
+
     def _query_latest_value_before(
         self, entity_id: str, measurement: str, hours_ago: int
     ) -> Optional[tuple]:
@@ -425,10 +456,12 @@ from(bucket: "{bucket}")
         # Query last rain time
         precip_entity = entities.get("precipitation_intensity")
         last_rain_time = self._query_last_rain(precip_entity) if precip_entity else None
+        if not last_rain_time and rain_entity:
+            last_rain_time = self._query_last_rain_from_daily_total(rain_entity)
         if last_rain_time:
             result["last_rain_date_pretty"] = format_relative_time(last_rain_time)
         else:
-            result["last_rain_date_pretty"] = "over 5 years ago"
+            result["last_rain_date_pretty"] = "unknown"
 
         outdoor_temp_entity = entities.get("outdoor_temp")
         if outdoor_temp_entity:
