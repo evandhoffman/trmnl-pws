@@ -6,7 +6,7 @@
 
   <div class="view view--full">
 
-    <div id="weather-chart" style="width: 100%"></div>
+    <div id="weather-chart" style="width: 100%; height: 408px;"></div>
 
     <div class="title_bar">
       <img class="image" src="https://cdn-icons-png.flaticon.com/512/16342/16342339.png" />
@@ -27,6 +27,31 @@
     // Add 5-degree buffer as requested
     minTemp = Math.floor(minTemp) - 3;
     maxTemp = Math.ceil(maxTemp) + 3;
+
+    function buildFreezingHatchLines(minimumTemp) {
+      if (minimumTemp >= 32) {
+        return [];
+      }
+
+      return [{
+        value: 32,
+        color: "black",
+        width: 2,
+        dashStyle: "Dash",
+        zIndex: 1,
+        label: {
+          text: "Freezing (32°F)",
+          align: "right",
+          x: -10,
+          style: {
+            color: "black",
+            fontWeight: "bold"
+          }
+        }
+      }];
+    }
+
+    const freezingHatchLines = buildFreezingHatchLines(minTemp);
 
     // recommended configs to achieve the e-ink friendly aesthetic
     var createChart = function() {
@@ -50,9 +75,13 @@
             },
             chart: {
               title: {
-                text: 'Indoor / Outdoor Temperature'
+                text: null
               },
-              height: 360,
+              height: 408,
+              spacingTop: 6,
+              spacingBottom: 8,
+              spacingLeft: 0,
+              spacingRight: 0,
               style: {
                 fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
               }
@@ -85,26 +114,7 @@
               gridLineDashStyle: "shortdot",
               gridLineWidth: 1,
               gridLineColor: "#000000",
-              plotBands: [{
-                from: minTemp,
-                to: 32,
-                color: 'rgba(200, 200, 200, 0.5)' // Grey shading below freezing
-              }],
-              plotLines: [{
-                value: 32,
-                color: 'black',
-                width: 2,
-                dashStyle: 'dash',
-                label: {
-                  text: 'Freezing (32°F)',
-                  align: 'right',
-                  x: -10,
-                  style: {
-                    color: 'black',
-                    fontWeight: 'bold'
-                  }
-                }
-              }]
+              plotLines: freezingHatchLines
             },
             xAxis: {
               type: "datetime",
