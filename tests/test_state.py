@@ -107,6 +107,15 @@ class TestRecordUpdate:
         assert s[WEBHOOK_ID]["timestamp"] != old_ts
 
 
+class TestShouldUpdateNaiveTimestamp:
+    def test_naive_timestamp_in_state_does_not_raise(self):
+        """State files written by older containers may have naive timestamps."""
+        s = {"wh": {"timestamp": "2026-03-13T02:00:40.614844", "failure_count": 0}}
+        # Should not raise TypeError about offset-naive vs offset-aware
+        result = should_update(s, "wh", poll_interval=300)
+        assert isinstance(result, bool)
+
+
 class TestShouldUpdate:
     def _state_with_age(self, seconds_ago, failure_count=0):
         """Build a state dict where last update was `seconds_ago` seconds in the past."""

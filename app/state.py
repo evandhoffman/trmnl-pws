@@ -101,6 +101,8 @@ def get_last_update_time(state, webhook_id):
         if timestamp_str:
             try:
                 dt = datetime.fromisoformat(timestamp_str)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
                 logger.info(
                     f"Webhook {webhook_id[:8]}... last updated at {timestamp_str} UTC"
                 )
