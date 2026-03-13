@@ -2,7 +2,7 @@
 <div class="view view--full">
   <div class="layout layout--col gap--space-between">
     <div class="grid">
-      <div class="col col--span-6 col--end">
+      <div class="col col--span-5 col--end">
         <div class="item h--full">
           <div class="meta"></div>
           <div class="content">
@@ -13,12 +13,12 @@
           </div>
         </div>
       </div>
-      <div class="col col--span-3 col--end">
+      <div class="col col--span-4 col--end">
         <div class="grid grid--cols-3 gap--medium">
           <div class="item">
             <div class="meta"></div>
             <div class="icon">
-              <img class="weather-icon" src="/images/weather/wi-thermometer.svg" />
+              <img class="weather-icon" src="/images/plugins/weather/wi-thermometer.svg" />
             </div>
             <div class="content">
               <span class="value value--small">{{feelsLike | round}}°</span>
@@ -29,7 +29,7 @@
           <div class="item">
             <div class="meta"></div>
             <div class="icon">
-              <img class="weather-icon" src="/images/weather/wi-raindrops.svg" />
+              <img class="weather-icon" src="/images/plugins/weather/wi-raindrops.svg" />
             </div>
             <div class="content">
               <span class="value value--small">{{humidity}}%</span>
@@ -40,7 +40,7 @@
           <div class="item">
             <div class="meta"></div>
             <div class="icon">
-              <img class="weather-icon" src="/images/weather/wi-barometer.svg" />
+              <img class="weather-icon" src="/images/plugins/weather/wi-barometer.svg" />
             </div>
             <div class="content">
               <span class="value value--xsmall">{{baromrelin}} inHg {{pressure_trend}}</span>
@@ -51,7 +51,7 @@
           <div class="item">
             <div class="meta"></div>
             <div class="icon">
-              <img class="weather-icon" src="/images/weather/wi-strong-wind.svg" />
+              <img class="weather-icon" src="/images/plugins/weather/wi-strong-wind.svg" />
             </div>
             <div class="content">
               <span class="value value--xsmall">{{windspeedmph | round}} / {{windgustmph | round}} mph</span>
@@ -62,7 +62,7 @@
           <div class="item">
             <div class="meta"></div>
             <div class="icon">
-              <img class="weather-icon" src="/images/weather/wi-thermometer.svg" />
+              <img class="weather-icon" src="/images/plugins/weather/wi-thermometer.svg" />
             </div>
             <div class="content">
               <span class="value value--small">{{dewPoint | round}}°</span>
@@ -73,7 +73,7 @@
           <div class="item">
             <div class="meta"></div>
             <div class="icon">
-              <img class="weather-icon" src="/images/weather/wi-hot.svg" />
+              <img class="weather-icon" src="/images/plugins/weather/wi-hot.svg" />
             </div>
             <div class="content">
               <span class="value value--small">{{uv | round}}</span>
@@ -100,7 +100,7 @@
   </div>
 
   <div class="title_bar">
-    <img class="image" src="/images/plugins/weather-station.svg" />
+    <img class="image" src="https://cdn-icons-png.flaticon.com/512/16342/16342339.png" />
     <h1 class="title">Last updated: {{date_pretty}}</h1>
     <span class="instance">{{trmnl['plugin_settings']['instance_name']}}</span>
   </div>
