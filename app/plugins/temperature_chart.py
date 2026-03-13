@@ -74,7 +74,9 @@ class TemperatureChartPlugin(BasePlugin):
             end.isoformat(),
             ", ".join(f"{event['kind']}={event['time_pretty']}" for event in events) or "none in range",
         )
-        return json.dumps(events)
+        payload = json.dumps(events)
+        logger.info("Temperature chart js_solar_events payload: %s", payload)
+        return payload
 
     def collect_data(self) -> Dict[str, Any]:
         """
