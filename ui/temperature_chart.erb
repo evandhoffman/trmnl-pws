@@ -28,6 +28,47 @@
     minTemp = Math.floor(minTemp) - 3;
     maxTemp = Math.ceil(maxTemp) + 3;
 
+    function buildFreezingHatchLines(minimumTemp) {
+      if (minimumTemp >= 32) {
+        return [];
+      }
+
+      const lines = [];
+      const startTemp = Math.ceil(minimumTemp);
+
+      // Use explicit horizontal hatch lines because TRMNL's renderer drops plotBand fills.
+      for (let value = startTemp; value < 32; value += 2) {
+        lines.push({
+          value: value,
+          color: value % 4 === 0 ? "#b5b5b5" : "#d4d4d4",
+          width: value % 4 === 0 ? 2 : 1,
+          dashStyle: value % 4 === 0 ? "Solid" : "ShortDot",
+          zIndex: 0
+        });
+      }
+
+      lines.push({
+        value: 32,
+        color: "black",
+        width: 2,
+        dashStyle: "Dash",
+        zIndex: 1,
+        label: {
+          text: "Freezing (32°F)",
+          align: "right",
+          x: -10,
+          style: {
+            color: "black",
+            fontWeight: "bold"
+          }
+        }
+      });
+
+      return lines;
+    }
+
+    const freezingHatchLines = buildFreezingHatchLines(minTemp);
+
     // recommended configs to achieve the e-ink friendly aesthetic
     var createChart = function() {
       new Chartkick["LineChart"](
@@ -85,26 +126,7 @@
               gridLineDashStyle: "shortdot",
               gridLineWidth: 1,
               gridLineColor: "#000000",
-              plotBands: [{
-                from: minTemp,
-                to: 32,
-                color: 'rgba(200, 200, 200, 0.5)' // Grey shading below freezing
-              }],
-              plotLines: [{
-                value: 32,
-                color: 'black',
-                width: 2,
-                dashStyle: 'dash',
-                label: {
-                  text: 'Freezing (32°F)',
-                  align: 'right',
-                  x: -10,
-                  style: {
-                    color: 'black',
-                    fontWeight: 'bold'
-                  }
-                }
-              }]
+              plotLines: freezingHatchLines
             },
             xAxis: {
               type: "datetime",
