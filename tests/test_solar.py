@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 import app.utils.solar as solar_module
 from app.utils.solar import get_solar_events_for_date
@@ -65,3 +65,16 @@ class TestGetSolarEventsBetween:
         assert events
         assert any(event["label"] == "Noon" for event in events)
         assert all(event["timestamp_ms"] > 0 for event in events)
+
+    def test_event_timestamps_land_on_requested_local_date(self):
+        events = get_solar_events_for_date(
+            date(2026, 3, 13),
+            latitude=40.66148862046403,
+            longitude=-73.52188909967647,
+            tz_name="America/New_York",
+        )
+
+        assert {
+            datetime.fromtimestamp(event["timestamp_ms"] / 1000, solar_module.pytz.timezone("America/New_York")).date()
+            for event in events
+        } == {date(2026, 3, 13)}

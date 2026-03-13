@@ -80,6 +80,15 @@ def _solar_events_for_date(
     solar_noon = _julian_day_to_datetime(solar_transit).astimezone(tz)
     sunset = _julian_day_to_datetime(solar_transit + hour_angle / 360).astimezone(tz)
 
+    # Normalize onto the requested local date. The raw solar-cycle math can land one
+    # day early around timezone boundaries even when the local clock time is correct.
+    day_offset = (local_date - solar_noon.date()).days
+    if day_offset:
+        adjustment = timedelta(days=day_offset)
+        sunrise += adjustment
+        solar_noon += adjustment
+        sunset += adjustment
+
     return {
         "sunrise": sunrise,
         "solar_noon": solar_noon,
