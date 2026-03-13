@@ -103,6 +103,8 @@ def get_solar_events_between(
     if end < start:
         start, end = end, start
 
+    start_ms = timestamp_to_milliseconds(start.astimezone(timezone.utc))
+    end_ms = timestamp_to_milliseconds(end.astimezone(timezone.utc))
     tz = pytz.timezone(tz_name)
     current_date = start.astimezone(tz).date()
     end_date = end.astimezone(tz).date()
@@ -134,8 +136,9 @@ def get_solar_events_between(
         )
         current_date += timedelta(days=1)
 
+    payloads = [event.to_payload() for event in events]
     return [
-        event.to_payload()
-        for event in events
-        if start <= event.timestamp.astimezone(timezone.utc) <= end
+        payload
+        for payload in payloads
+        if start_ms <= payload["timestamp_ms"] <= end_ms
     ]
