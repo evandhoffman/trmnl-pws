@@ -191,7 +191,7 @@ from(bucket: "{bucket}")
         measurement: str,
         hours_back: int = 3,
         aggregation_minutes: int = 15,
-    ) -> List[float]:
+    ) -> List[tuple[datetime, float]]:
         """Query recent temperature history for sparkline rendering."""
         bucket = self.get_bucket()
         query_tz = self.get_influx_query_timezone()
@@ -218,24 +218,31 @@ from(bucket: "{bucket}")
                     values.append((record.get_time(), round_value(value, 1)))
 
         values.sort(key=lambda row: row[0])
-        return [row[1] for row in values]
+        return values
 
     def _build_sparkline_metadata(
-        self, values: List[float], width: int = 312, height: int = 108, padding: int = 8
+        self,
+        readings: List[tuple[datetime, float]],
+        width: int = 312,
+        height: int = 108,
+        padding: int = 8,
     ) -> Dict[str, Any]:
         """Convert a numeric series into compact SVG polyline points and labels."""
         empty_state = {
             "points": "",
             "min_value": "",
             "max_value": "",
+            "start_time": "",
+            "end_time": "",
             "min_x": padding,
             "min_y": height - padding,
             "max_x": padding,
             "max_y": padding,
         }
-        if len(values) < 2:
+        if len(readings) < 2:
             return empty_state
 
+        values = [value for _, value in readings]
         min_value = min(values)
         max_value = max(values)
         min_index = values.index(min_value)
@@ -260,6 +267,12 @@ from(bucket: "{bucket}")
             "points": " ".join(points),
             "min_value": f"{min_value:.0f}°",
             "max_value": f"{max_value:.0f}°",
+            "start_time": format_timestamp_for_display(
+                readings[0][0], self.get_timezone(), "%-I:%M%p"
+            ).lower(),
+            "end_time": format_timestamp_for_display(
+                readings[-1][0], self.get_timezone(), "%-I:%M%p"
+            ).lower(),
             "min_x": f"{min_x:.1f}",
             "min_y": f"{min(height - 2, min_y + 18):.1f}",
             "max_x": f"{max_x:.1f}",
@@ -419,11 +432,15 @@ from(bucket: "{bucket}")
 
         outdoor_temp_entity = entities.get("outdoor_temp")
         if outdoor_temp_entity:
-            sparkline_values = self._query_temperature_history(outdoor_temp_entity, "°F")
-            sparkline = self._build_sparkline_metadata(sparkline_values)
+            sparkline_readings = self._query_temperature_history(
+                outdoor_temp_entity, "°F"
+            )
+            sparkline = self._build_sparkline_metadata(sparkline_readings)
             result["temp_sparkline_points"] = sparkline["points"]
             result["temp_sparkline_min"] = sparkline["min_value"]
             result["temp_sparkline_max"] = sparkline["max_value"]
+            result["temp_sparkline_start"] = sparkline["start_time"]
+            result["temp_sparkline_end"] = sparkline["end_time"]
             result["temp_sparkline_min_x"] = sparkline["min_x"]
             result["temp_sparkline_min_y"] = sparkline["min_y"]
             result["temp_sparkline_max_x"] = sparkline["max_x"]
@@ -432,6 +449,8 @@ from(bucket: "{bucket}")
             result["temp_sparkline_points"] = ""
             result["temp_sparkline_min"] = ""
             result["temp_sparkline_max"] = ""
+            result["temp_sparkline_start"] = ""
+            result["temp_sparkline_end"] = ""
             result["temp_sparkline_min_x"] = "8"
             result["temp_sparkline_min_y"] = "100"
             result["temp_sparkline_max_x"] = "8"
