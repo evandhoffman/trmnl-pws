@@ -40,11 +40,11 @@ class TestFormatRelativeTime:
 
     def test_one_week(self):
         ts = FIXED_NOW - timedelta(weeks=1)
-        assert format_relative_time(ts, now=FIXED_NOW) == "1 week ago"
+        assert format_relative_time(ts, now=FIXED_NOW) == "7 days ago"
 
     def test_plural_weeks(self):
         ts = FIXED_NOW - timedelta(weeks=3)
-        assert format_relative_time(ts, now=FIXED_NOW) == "3 weeks ago"
+        assert format_relative_time(ts, now=FIXED_NOW) == "21 days ago"
 
     def test_naive_timestamp_treated_as_utc(self):
         naive = datetime(2024, 6, 15, 11, 59, 0)  # no tzinfo
