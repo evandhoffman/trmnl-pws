@@ -120,7 +120,7 @@ import "timezone"
 option location = timezone.location(name: "{query_tz}")
 
 from(bucket: "{bucket}")
-    |> range(start: -365d)
+    |> range(start: -1825d)
     |> filter(fn: (r) => r["entity_id"] == "{entity_id}")
     |> filter(fn: (r) => r["_field"] == "value")
     |> filter(fn: (r) => r["_value"] > 0.0)
@@ -428,7 +428,7 @@ from(bucket: "{bucket}")
         if last_rain_time:
             result["last_rain_date_pretty"] = format_relative_time(last_rain_time)
         else:
-            result["last_rain_date_pretty"] = "No recent rain"
+            result["last_rain_date_pretty"] = "over 5 years ago"
 
         outdoor_temp_entity = entities.get("outdoor_temp")
         if outdoor_temp_entity:
