@@ -12,47 +12,47 @@
   <text x="106" y="438" fill="#cbd5e1" font-family="Arial, sans-serif" font-size="22">Trend</text>
   <rect x="106" y="486" width="312" height="94" rx="18" fill="#1f2937"/>
   <text x="132" y="536" fill="#f8fafc" font-family="Arial, sans-serif" font-size="34" font-weight="700">Inside 68F</text>
-  <text x="132" y="566" fill="#94a3b8" font-family="Arial, sans-serif" font-size="22">Indoor humidity 41%</text>
+  <text x="132" y="566" fill="#94a3b8" font-family="Arial, sans-serif" font-size="20">Indoor humidity 41%</text>
 
   <g transform="translate(484 156)" font-family="Arial, sans-serif">
     <rect x="0" y="0" width="614" height="458" rx="28" fill="#e5e7eb"/>
 
     <rect x="24" y="24" width="270" height="94" rx="18" fill="#ffffff"/>
-    <text x="48" y="70" fill="#111827" font-size="38" font-weight="700">Pressure 29.91</text>
-    <text x="48" y="100" fill="#475569" font-size="22">Rising over 3h</text>
+    <text x="48" y="68" fill="#111827" font-size="34" font-weight="700">Pressure 29.91</text>
+    <text x="48" y="98" fill="#475569" font-size="20">Rising over 3h</text>
 
     <rect x="320" y="24" width="270" height="94" rx="18" fill="#ffffff"/>
-    <text x="344" y="70" fill="#111827" font-size="38" font-weight="700">Wind NE 4 mph</text>
-    <text x="344" y="100" fill="#475569" font-size="22">Gust 7 mph</text>
+    <text x="344" y="66" fill="#111827" font-size="32" font-weight="700">Wind NE 4 mph</text>
+    <text x="344" y="96" fill="#475569" font-size="20">Gust 7 mph</text>
 
     <rect x="24" y="138" width="182" height="94" rx="18" fill="#ffffff"/>
     <text x="48" y="192" fill="#111827" font-size="42" font-weight="700">29F</text>
-    <text x="48" y="218" fill="#475569" font-size="22">Feels Like</text>
+    <text x="48" y="218" fill="#475569" font-size="20">Feels Like</text>
 
     <rect x="216" y="138" width="182" height="94" rx="18" fill="#ffffff"/>
     <text x="240" y="192" fill="#111827" font-size="42" font-weight="700">63%</text>
-    <text x="240" y="218" fill="#475569" font-size="22">Humidity</text>
+    <text x="240" y="218" fill="#475569" font-size="20">Humidity</text>
 
     <rect x="408" y="138" width="182" height="94" rx="18" fill="#ffffff"/>
     <text x="432" y="192" fill="#111827" font-size="42" font-weight="700">18F</text>
-    <text x="432" y="218" fill="#475569" font-size="22">Dew Point</text>
+    <text x="432" y="218" fill="#475569" font-size="20">Dew Point</text>
 
     <rect x="24" y="252" width="182" height="94" rx="18" fill="#ffffff"/>
     <text x="48" y="306" fill="#111827" font-size="42" font-weight="700">2</text>
-    <text x="48" y="332" fill="#475569" font-size="22">UV Index</text>
+    <text x="48" y="332" fill="#475569" font-size="20">UV Index</text>
 
     <rect x="216" y="252" width="182" height="94" rx="18" fill="#ffffff"/>
     <text x="240" y="306" fill="#111827" font-size="42" font-weight="700">418</text>
-    <text x="240" y="332" fill="#475569" font-size="22">Solar W/m2</text>
+    <text x="240" y="332" fill="#475569" font-size="20">Solar W/m2</text>
 
     <rect x="408" y="252" width="182" height="94" rx="18" fill="#ffffff"/>
     <text x="432" y="306" fill="#111827" font-size="42" font-weight="700">0.14</text>
-    <text x="432" y="332" fill="#475569" font-size="22">Rain Today</text>
+    <text x="432" y="332" fill="#475569" font-size="20">Rain Today</text>
 
     <rect x="24" y="366" width="566" height="68" rx="18" fill="#ffffff"/>
-    <text x="48" y="410" fill="#111827" font-size="34" font-weight="700">Last rain 2h ago</text>
-    <text x="298" y="410" fill="#475569" font-size="24">No separate bottom row required.</text>
+    <text x="48" y="410" fill="#111827" font-size="30" font-weight="700">Last rain 2h ago</text>
+    <text x="290" y="410" fill="#475569" font-size="20">Bottom row folded into the grid.</text>
   </g>
 
-  <text x="72" y="676" fill="#334155" font-family="Arial, sans-serif" font-size="22">Why this works: it preserves more simultaneous data, but it is visually busier than Variant A.</text>
+  <text x="72" y="672" fill="#334155" font-family="Arial, sans-serif" font-size="20">Why this works: it preserves more simultaneous data while still keeping everything inside the frame.</text>
 </svg>
