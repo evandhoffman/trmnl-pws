@@ -22,4 +22,4 @@ COPY --from=builder /app/venv /app/venv
 # Copy application code
 COPY app/ ./app/
 
-CMD ["python", "-m", "app.main"]
+CMD ["-m", "app.main"]
