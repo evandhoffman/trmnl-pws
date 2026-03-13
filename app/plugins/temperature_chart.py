@@ -2,7 +2,7 @@
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List
 from app.plugins import BasePlugin
 from app.utils.formatting import timestamp_to_milliseconds
@@ -58,25 +58,20 @@ class TemperatureChartPlugin(BasePlugin):
             "temp_last_time": last_time,
         }
 
-    def _build_solar_event_payload(
-        self, outdoor_points: List[List[float]], indoor_points: List[List[float]]
-    ) -> str:
+    def _build_solar_event_payload(self, hours_back: int) -> str:
         coordinates = self.get_coordinates()
         if not coordinates:
             logger.info("Temperature chart solar annotations disabled: no coordinates configured")
             return "[]"
 
-        combined_points = outdoor_points + indoor_points
-        if not combined_points:
-            logger.info("Temperature chart solar annotations skipped: no chart points available")
-            return "[]"
-
         latitude, longitude = coordinates
-        start = datetime.fromtimestamp(min(point[0] for point in combined_points) / 1000, tz=timezone.utc)
-        end = datetime.fromtimestamp(max(point[0] for point in combined_points) / 1000, tz=timezone.utc)
+        end = datetime.now(timezone.utc)
+        start = end - timedelta(hours=hours_back)
         events = get_solar_events_between(start, end, latitude, longitude, self.get_timezone())
         logger.info(
-            "Temperature chart solar annotations: %s",
+            "Temperature chart solar annotations for %s to %s: %s",
+            start.isoformat(),
+            end.isoformat(),
             ", ".join(f"{event['kind']}={event['time_pretty']}" for event in events) or "none in range",
         )
         return json.dumps(events)
@@ -165,9 +160,7 @@ from(bucket: "{bucket}")
             "display_timezone": self.get_timezone(),
             "js_temperature_data": js_data_str,
             "js_indoor_temperature_data": js_indoor_data_str,
-            "js_solar_events": self._build_solar_event_payload(
-                outdoor_temp_data, indoor_temp_data
-            ),
+            "js_solar_events": self._build_solar_event_payload(hours_back),
             **summary,
         }
 

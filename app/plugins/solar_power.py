@@ -2,7 +2,7 @@
 
 import json
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Dict, Any, List
 from app.plugins import BasePlugin
 from app.utils.formatting import timestamp_to_milliseconds
@@ -21,25 +21,20 @@ class SolarPowerPlugin(BasePlugin):
         self.plugin_config = config["plugins"]["solar_power"]
         self.plugin_name = "SolarPower"
 
-    def _build_solar_event_payload(self, sensors_data: Dict[str, List[List[float]]]) -> str:
+    def _build_solar_event_payload(self, hours_back: int) -> str:
         coordinates = self.get_coordinates()
         if not coordinates:
             logger.info("Solar power chart annotations disabled: no coordinates configured")
             return "[]"
 
-        all_points = [
-            point for sensor_points in sensors_data.values() for point in sensor_points
-        ]
-        if not all_points:
-            logger.info("Solar power chart annotations skipped: no chart points available")
-            return "[]"
-
         latitude, longitude = coordinates
-        start = datetime.fromtimestamp(min(point[0] for point in all_points) / 1000, tz=timezone.utc)
-        end = datetime.fromtimestamp(max(point[0] for point in all_points) / 1000, tz=timezone.utc)
+        end = datetime.now(timezone.utc)
+        start = end - timedelta(hours=hours_back)
         events = get_solar_events_between(start, end, latitude, longitude, self.get_timezone())
         logger.info(
-            "Solar power chart annotations: %s",
+            "Solar power chart annotations for %s to %s: %s",
+            start.isoformat(),
+            end.isoformat(),
             ", ".join(f"{event['kind']}={event['time_pretty']}" for event in events) or "none in range",
         )
         return json.dumps(events)
@@ -132,7 +127,7 @@ from(bucket: "{bucket}")
             "str_daily_energy": round_value(daily_energy, 1),
             "peak_solar_kw": round_value(peak_solar_kw, 1),
             "peak_solar_time": peak_solar_time,
-            "js_solar_events": self._build_solar_event_payload(sensors_data),
+            "js_solar_events": self._build_solar_event_payload(hours_back),
         }
 
         for entity_id, data in sensors_data.items():
