@@ -34,7 +34,7 @@ Use `general.timezone` for display formatting and `general.influx_query_timezone
 There is no automated test suite today. Validate changes by running the service locally or through Docker and inspecting logs. For plugin changes, verify the query returns data, the payload stays under TRMNL limits, and state/backoff behavior still works. Set `log_level: DEBUG` to inspect Flux queries, record counts, payload sizes, and state operations. Common failures are mismatched `entity_id` filters, bad timezone handling, and unwritable state files.
 
 ## Commit & Pull Request Guidelines
-Recent history uses short imperative subjects such as `fix PR review issues`, `renamed`, and `add CLAUDE.md for Claude Code guidance`. Keep commits focused and small. Pull requests should describe the runtime impact, note config or webhook changes, link the issue when relevant, and include screenshots or payload examples for `ui/` or display-output changes.
+Recent history uses short imperative subjects such as `fix PR review issues`, `renamed`, and `add CLAUDE.md/GEMINI.md for AI agent guidance`. Keep commits focused and small. Pull requests should describe the runtime impact, note config or webhook changes, link the issue when relevant, and include screenshots or payload examples for `ui/` or display-output changes.
 
 ## Configuration & Extension Notes
 Never commit real secrets. When adding a plugin, update `app/plugins/`, add config and secret keys to both example and local YAML files, and register the plugin in `app/main.py`. Preserve the existing state-management flow so retries and backoff remain centralized.
