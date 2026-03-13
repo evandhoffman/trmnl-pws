@@ -7,6 +7,7 @@ from typing import Dict, Any, List
 from app.plugins import BasePlugin
 from app.utils.formatting import timestamp_to_milliseconds
 from app.utils.conversions import round_value
+from app.utils.solar import get_solar_events_between
 import pytz
 
 logger = logging.getLogger(__name__)
@@ -19,6 +20,23 @@ class SolarPowerPlugin(BasePlugin):
         super().__init__(config, secrets, influx_client)
         self.plugin_config = config["plugins"]["solar_power"]
         self.plugin_name = "SolarPower"
+
+    def _build_solar_event_payload(self, sensors_data: Dict[str, List[List[float]]]) -> str:
+        coordinates = self.get_coordinates()
+        if not coordinates:
+            return "[]"
+
+        all_points = [
+            point for sensor_points in sensors_data.values() for point in sensor_points
+        ]
+        if not all_points:
+            return "[]"
+
+        latitude, longitude = coordinates
+        start = datetime.fromtimestamp(min(point[0] for point in all_points) / 1000, tz=timezone.utc)
+        end = datetime.fromtimestamp(max(point[0] for point in all_points) / 1000, tz=timezone.utc)
+        events = get_solar_events_between(start, end, latitude, longitude, self.get_timezone())
+        return json.dumps(events)
 
     def collect_data(self) -> Dict[str, Any]:
         """
@@ -108,6 +126,7 @@ from(bucket: "{bucket}")
             "str_daily_energy": round_value(daily_energy, 1),
             "peak_solar_kw": round_value(peak_solar_kw, 1),
             "peak_solar_time": peak_solar_time,
+            "js_solar_events": self._build_solar_event_payload(sensors_data),
         }
 
         for entity_id, data in sensors_data.items():

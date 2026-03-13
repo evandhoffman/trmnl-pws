@@ -2,11 +2,13 @@
 
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Dict, Any, List
 from app.plugins import BasePlugin
 from app.utils.formatting import timestamp_to_milliseconds
+from app.utils.formatting import format_timestamp_for_display
 from app.utils.conversions import round_value
+from app.utils.solar import get_solar_events_between
 import pytz
 
 logger = logging.getLogger(__name__)
@@ -19,6 +21,59 @@ class TemperatureChartPlugin(BasePlugin):
         super().__init__(config, secrets, influx_client)
         self.plugin_config = config["plugins"]["temperature_chart"]
         self.plugin_name = "TemperatureChart"
+
+    def _build_series_summary(self, points: List[List[float]]) -> Dict[str, str]:
+        if not points:
+            return {
+                "temp_low_value": "--",
+                "temp_low_time": "--",
+                "temp_high_value": "--",
+                "temp_high_time": "--",
+                "temp_last_value": "--",
+                "temp_last_time": "--",
+            }
+
+        local_tz_name = self.get_timezone()
+        low_point = min(points, key=lambda point: point[1])
+        high_point = max(points, key=lambda point: point[1])
+        last_point = points[-1]
+
+        def format_point(point: List[float]) -> tuple[str, str]:
+            timestamp = datetime.fromtimestamp(point[0] / 1000, tz=timezone.utc)
+            return (
+                f"{point[1]:.1f}°F",
+                format_timestamp_for_display(timestamp, local_tz_name, "%-I:%M %p"),
+            )
+
+        low_value, low_time = format_point(low_point)
+        high_value, high_time = format_point(high_point)
+        last_value, last_time = format_point(last_point)
+
+        return {
+            "temp_low_value": low_value,
+            "temp_low_time": low_time,
+            "temp_high_value": high_value,
+            "temp_high_time": high_time,
+            "temp_last_value": last_value,
+            "temp_last_time": last_time,
+        }
+
+    def _build_solar_event_payload(
+        self, outdoor_points: List[List[float]], indoor_points: List[List[float]]
+    ) -> str:
+        coordinates = self.get_coordinates()
+        if not coordinates:
+            return "[]"
+
+        combined_points = outdoor_points + indoor_points
+        if not combined_points:
+            return "[]"
+
+        latitude, longitude = coordinates
+        start = datetime.fromtimestamp(min(point[0] for point in combined_points) / 1000, tz=timezone.utc)
+        end = datetime.fromtimestamp(max(point[0] for point in combined_points) / 1000, tz=timezone.utc)
+        events = get_solar_events_between(start, end, latitude, longitude, self.get_timezone())
+        return json.dumps(events)
 
     def collect_data(self) -> Dict[str, Any]:
         """
@@ -97,12 +152,17 @@ from(bucket: "{bucket}")
         # Format data for webhook (JavaScript-compatible string for Highcharts)
         js_data_str = json.dumps(outdoor_temp_data)
         js_indoor_data_str = json.dumps(indoor_temp_data)
+        summary = self._build_series_summary(outdoor_temp_data)
 
         return {
             "current_timestamp": formatted_timestamp,
             "display_timezone": self.get_timezone(),
             "js_temperature_data": js_data_str,
             "js_indoor_temperature_data": js_indoor_data_str,
+            "js_solar_events": self._build_solar_event_payload(
+                outdoor_temp_data, indoor_temp_data
+            ),
+            **summary,
         }
 
     def get_webhook_id(self) -> str:
