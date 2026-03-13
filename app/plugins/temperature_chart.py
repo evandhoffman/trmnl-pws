@@ -2,13 +2,13 @@
 
 import json
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 from typing import Dict, Any, List
 from app.plugins import BasePlugin
 from app.utils.formatting import timestamp_to_milliseconds
 from app.utils.formatting import format_timestamp_for_display
 from app.utils.conversions import round_value
-from app.utils.solar import get_solar_events_between
+from app.utils.solar import get_solar_events_for_date
 import pytz
 
 logger = logging.getLogger(__name__)
@@ -58,21 +58,23 @@ class TemperatureChartPlugin(BasePlugin):
             "temp_last_time": last_time,
         }
 
-    def _build_solar_event_payload(self, hours_back: int) -> str:
+    def _build_solar_event_payload(self) -> str:
         coordinates = self.get_coordinates()
         if not coordinates:
             logger.info("Temperature chart solar annotations disabled: no coordinates configured")
             return "[]"
 
         latitude, longitude = coordinates
-        end = datetime.now(timezone.utc)
-        start = end - timedelta(hours=hours_back)
-        events = get_solar_events_between(start, end, latitude, longitude, self.get_timezone())
+        tz = pytz.timezone(self.get_timezone())
+        local_date = datetime.now(timezone.utc).astimezone(tz).date()
+        events = get_solar_events_for_date(local_date, latitude, longitude, self.get_timezone())
         logger.info(
-            "Temperature chart solar annotations for %s to %s: %s",
-            start.isoformat(),
-            end.isoformat(),
-            ", ".join(f"{event['kind']}={event['time_pretty']}" for event in events) or "none in range",
+            "Temperature chart solar annotations for %s: %s",
+            local_date.isoformat(),
+            ", ".join(
+                f"{event['label']}={datetime.fromtimestamp(event['timestamp_ms'] / 1000, tz).strftime('%-I:%M %p')}"
+                for event in events
+            ) or "none",
         )
         payload = json.dumps(events)
         logger.info("Temperature chart js_solar_events payload: %s", payload)
@@ -162,7 +164,7 @@ from(bucket: "{bucket}")
             "display_timezone": self.get_timezone(),
             "js_temperature_data": js_data_str,
             "js_indoor_temperature_data": js_indoor_data_str,
-            "js_solar_events": self._build_solar_event_payload(hours_back),
+            "js_solar_events": self._build_solar_event_payload(),
             **summary,
         }
 

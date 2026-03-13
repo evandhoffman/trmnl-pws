@@ -16,22 +16,18 @@ ZENITH_DEGREES = -0.83
 JULIAN_UNIX_EPOCH = 2440587.5
 J2000 = 2451545.0
 SOLAR_TRANSIT_LONGITUDE_OFFSET = 102.9372
+SOLAR_EVENT_CACHE: dict[tuple[date, float, float, str], list[dict[str, Any]]] = {}
 
 
 @dataclass(frozen=True)
 class SolarEvent:
-    kind: str
     label: str
-    short_label: str
     timestamp: datetime
 
     def to_payload(self) -> dict[str, Any]:
         return {
-            "kind": self.kind,
             "label": self.label,
-            "short_label": self.short_label,
             "timestamp_ms": timestamp_to_milliseconds(self.timestamp),
-            "time_pretty": self.timestamp.strftime("%-I:%M %p"),
         }
 
 
@@ -91,54 +87,20 @@ def _solar_events_for_date(
     }
 
 
-def get_solar_events_between(
-    start: datetime, end: datetime, latitude: float, longitude: float, tz_name: str
+def get_solar_events_for_date(
+    local_date: date, latitude: float, longitude: float, tz_name: str
 ) -> list[dict[str, Any]]:
-    """Return solar event payloads that fall within a chart's visible time range."""
-    if start.tzinfo is None:
-        start = start.replace(tzinfo=timezone.utc)
-    if end.tzinfo is None:
-        end = end.replace(tzinfo=timezone.utc)
+    """Return cached sunrise/solar noon/sunset payloads for a local date."""
+    cache_key = (local_date, latitude, longitude, tz_name)
+    cached = SOLAR_EVENT_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
 
-    if end < start:
-        start, end = end, start
-
-    start_ms = timestamp_to_milliseconds(start.astimezone(timezone.utc))
-    end_ms = timestamp_to_milliseconds(end.astimezone(timezone.utc))
-    tz = pytz.timezone(tz_name)
-    current_date = start.astimezone(tz).date()
-    end_date = end.astimezone(tz).date()
-    events: list[SolarEvent] = []
-
-    while current_date <= end_date:
-        day_events = _solar_events_for_date(current_date, latitude, longitude, tz_name)
-        events.extend(
-            [
-                SolarEvent(
-                    kind="sunrise",
-                    label=f"Sunrise {day_events['sunrise'].strftime('%-I:%M %p')}",
-                    short_label="Rise",
-                    timestamp=day_events["sunrise"],
-                ),
-                SolarEvent(
-                    kind="solar_noon",
-                    label=f"Solar Noon {day_events['solar_noon'].strftime('%-I:%M %p')}",
-                    short_label="Noon",
-                    timestamp=day_events["solar_noon"],
-                ),
-                SolarEvent(
-                    kind="sunset",
-                    label=f"Sunset {day_events['sunset'].strftime('%-I:%M %p')}",
-                    short_label="Set",
-                    timestamp=day_events["sunset"],
-                ),
-            ]
-        )
-        current_date += timedelta(days=1)
-
-    payloads = [event.to_payload() for event in events]
-    return [
-        payload
-        for payload in payloads
-        if start_ms <= payload["timestamp_ms"] <= end_ms
+    day_events = _solar_events_for_date(local_date, latitude, longitude, tz_name)
+    payloads = [
+        SolarEvent(label="Rise", timestamp=day_events["sunrise"]).to_payload(),
+        SolarEvent(label="Noon", timestamp=day_events["solar_noon"]).to_payload(),
+        SolarEvent(label="Set", timestamp=day_events["sunset"]).to_payload(),
     ]
+    SOLAR_EVENT_CACHE[cache_key] = payloads
+    return payloads

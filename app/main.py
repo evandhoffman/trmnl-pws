@@ -10,7 +10,7 @@ from typing import List
 from app.config import load_config, load_secrets
 from app.influx_client import create_client
 from app.webhook import post_to_webhook
-from app.utils.solar import get_solar_events_between
+from app.utils.solar import get_solar_events_for_date
 from app.state import (
     load_state,
     save_state,
@@ -62,13 +62,11 @@ def log_startup_solar_events(config: dict) -> None:
 
     tz = pytz.timezone(timezone_name)
     local_now = datetime.now(timezone.utc).astimezone(tz)
-    start = tz.localize(datetime.combine(local_now.date(), datetime.min.time())).astimezone(timezone.utc)
-    end = start + timedelta(days=1)
-    events = get_solar_events_between(start, end, latitude, longitude, timezone_name)
+    events = get_solar_events_for_date(local_now.date(), latitude, longitude, timezone_name)
 
     logger.info(
         "Startup solar events: %s",
-        ", ".join(f"{event['kind']}={event['time_pretty']}" for event in events) or "none",
+        ", ".join(f"{event['label']}={datetime.fromtimestamp(event['timestamp_ms'] / 1000, tz).strftime('%-I:%M %p')}" for event in events) or "none",
     )
 
 

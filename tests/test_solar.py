@@ -1,7 +1,7 @@
-from datetime import datetime, timezone
+from datetime import date
 
 import app.utils.solar as solar_module
-from app.utils.solar import get_solar_events_between
+from app.utils.solar import get_solar_events_for_date
 
 
 class TestGetSolarEventsBetween:
@@ -9,49 +9,30 @@ class TestGetSolarEventsBetween:
     USER_LONGITUDE = -73.98457100144142
 
     def test_returns_sunrise_noon_and_sunset_for_full_local_day(self):
-        start = datetime(2024, 6, 15, 4, 0, tzinfo=timezone.utc)
-        end = datetime(2024, 6, 16, 4, 0, tzinfo=timezone.utc)
-
-        events = get_solar_events_between(
-            start,
-            end,
+        events = get_solar_events_for_date(
+            date(2024, 6, 15),
             latitude=self.USER_LATITUDE,
             longitude=self.USER_LONGITUDE,
             tz_name="America/New_York",
         )
 
-        assert [event["kind"] for event in events] == [
-            "sunrise",
-            "solar_noon",
-            "sunset",
-        ]
-        assert [event["short_label"] for event in events] == ["Rise", "Noon", "Set"]
+        assert [event["label"] for event in events] == ["Rise", "Noon", "Set"]
 
-    def test_filters_events_outside_requested_window(self):
-        events = get_solar_events_between(
-            datetime(2024, 6, 15, 0, 0, tzinfo=timezone.utc),
-            datetime(2024, 6, 15, 1, 0, tzinfo=timezone.utc),
+    def test_returns_same_payload_for_repeated_requests_on_same_date(self):
+        first = get_solar_events_for_date(
+            date(2024, 6, 15),
+            latitude=self.USER_LATITUDE,
+            longitude=self.USER_LONGITUDE,
+            tz_name="America/New_York",
+        )
+        second = get_solar_events_for_date(
+            date(2024, 6, 15),
             latitude=self.USER_LATITUDE,
             longitude=self.USER_LONGITUDE,
             tz_name="America/New_York",
         )
 
-        assert events == []
-
-    def test_preserves_event_order_across_local_date_boundaries(self):
-        start = datetime(2024, 12, 20, 23, 0, tzinfo=timezone.utc)
-        end = datetime(2024, 12, 21, 23, 0, tzinfo=timezone.utc)
-
-        events = get_solar_events_between(
-            start,
-            end,
-            latitude=self.USER_LATITUDE,
-            longitude=self.USER_LONGITUDE,
-            tz_name="America/New_York",
-        )
-
-        timestamps = [event["timestamp_ms"] for event in events]
-        assert timestamps == sorted(timestamps)
+        assert first == second
 
     def test_uses_pytz_timezone_lookup(self, monkeypatch):
         seen = []
@@ -62,10 +43,10 @@ class TestGetSolarEventsBetween:
             return original_timezone(name)
 
         monkeypatch.setattr(solar_module.pytz, "timezone", tracking_timezone)
+        solar_module.SOLAR_EVENT_CACHE.clear()
 
-        get_solar_events_between(
-            datetime(2024, 6, 15, 4, 0, tzinfo=timezone.utc),
-            datetime(2024, 6, 16, 4, 0, tzinfo=timezone.utc),
+        get_solar_events_for_date(
+            date(2024, 6, 15),
             latitude=self.USER_LATITUDE,
             longitude=self.USER_LONGITUDE,
             tz_name="America/New_York",
@@ -74,15 +55,13 @@ class TestGetSolarEventsBetween:
         assert "America/New_York" in seen
 
     def test_returns_non_empty_event_payload_for_user_coordinates(self):
-        events = get_solar_events_between(
-            datetime(2024, 6, 15, 4, 0, tzinfo=timezone.utc),
-            datetime(2024, 6, 16, 4, 0, tzinfo=timezone.utc),
+        events = get_solar_events_for_date(
+            date(2024, 6, 15),
             latitude=self.USER_LATITUDE,
             longitude=self.USER_LONGITUDE,
             tz_name="America/New_York",
         )
 
         assert events
-        assert any(event["kind"] == "solar_noon" for event in events)
+        assert any(event["label"] == "Noon" for event in events)
         assert all(event["timestamp_ms"] > 0 for event in events)
-        assert all(event["time_pretty"] for event in events)
