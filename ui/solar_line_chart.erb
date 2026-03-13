@@ -4,32 +4,46 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.40/moment-timezone-with-data.min.js"></script>
 
-                <div class="item">
-                    <div class="meta"></div>
-                    <div class="content">
-                        <span class="title title--small">{{str_daily_energy}} kWh</span>
-                        <span class="description">Today's Solar Generation</span>
-                    </div>
-                </div>
+<div class="view view--full">
+  <div class="layout layout--col gap--space-between">
 
-                <div class="item">
-                    <div class="meta"></div>
-                    <div class="content">
-                        <span class="title title--small">{{peak_solar_kw}} kW @ {{peak_solar_time}}</span>
-                        <span class="description">Peak Solar Today</span>
-                    </div>
-                </div>
-
-            <div id="solar-chart" style="width: 100%"></div>
-
-        <div class="title_bar">
-            <svg class="image" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 3L4 6v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V6l-8-3zm0 2.87L17 8.25V12c0 3.9-2.55 7.46-6 8.6-3.45-1.14-6-4.7-6-8.6V8.25l6-2.38z" fill="black"/>
-            </svg>
-            <span class="title">Solar Power Monitor</span>
-            <span class="instance">Power Stats @ {{current_timestamp}}</span>
+    <div class="grid grid--cols-4" style="text-align: center;">
+      <div class="item">
+        <div class="content">
+          <span class="title title--small">{{str_daily_energy}} kWh</span>
+          <span class="description">Today's Generation</span>
         </div>
+      </div>
+      <div class="item">
+        <div class="content">
+          <span class="title title--small">{{peak_solar_kw}} kW @ {{peak_solar_time}}</span>
+          <span class="description">Peak Today</span>
+        </div>
+      </div>
+      <div class="item">
+        <div class="content">
+          <span class="title title--small" id="current-solar">--</span>
+          <span class="description">Current Solar</span>
+        </div>
+      </div>
+      <div class="item">
+        <div class="content">
+          <span class="title title--small" id="current-load">--</span>
+          <span class="description">Current Load</span>
+        </div>
+      </div>
     </div>
+
+    <div id="solar-chart" style="width: 100%"></div>
+
+  </div>
+
+  <div class="title_bar">
+    <img class="image" src="https://cdn-icons-png.flaticon.com/512/16342/16342339.png" />
+    <span class="title">Solar Power Monitor</span>
+    <span class="instance">Power Stats @ {{current_timestamp}}</span>
+  </div>
+</div>
 
     <script type="text/javascript">
         // Empty data arrays to be filled in later
@@ -120,6 +134,13 @@
                 }
             });
         };
+
+        // Populate current values from last data point in each series
+        var lastOf = function(arr) { return arr.length ? arr[arr.length - 1][1] : null; };
+        var currentSolar = lastOf(solarData);
+        var currentLoad  = lastOf(loadData);
+        if (currentSolar !== null) document.getElementById("current-solar").textContent = currentSolar + " kW";
+        if (currentLoad  !== null) document.getElementById("current-load").textContent  = currentLoad  + " kW";
 
         // ensure your chart loads before plugin render is generated
         if ("Chartkick" in window) {
