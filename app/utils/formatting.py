@@ -62,12 +62,9 @@ def format_relative_time(timestamp: datetime, now: Optional[datetime] = None) ->
     elif minutes < 1440:  # < 24 hours
         hours = int(minutes / 60)
         return f"{hours} hour{'s' if hours != 1 else ''} ago"
-    elif minutes < 10080:  # < 7 days
+    else:
         days = int(minutes / 1440)
         return f"{days} day{'s' if days != 1 else ''} ago"
-    else:
-        weeks = int(minutes / 10080)
-        return f"{weeks} week{'s' if weeks != 1 else ''} ago"
 
 
 def timestamp_to_milliseconds(timestamp: datetime) -> int:

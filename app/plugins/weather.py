@@ -120,7 +120,7 @@ import "timezone"
 option location = timezone.location(name: "{query_tz}")
 
 from(bucket: "{bucket}")
-    |> range(start: -30d)
+    |> range(start: -365d)
     |> filter(fn: (r) => r["entity_id"] == "{entity_id}")
     |> filter(fn: (r) => r["_field"] == "value")
     |> filter(fn: (r) => r["_value"] > 0.0)
