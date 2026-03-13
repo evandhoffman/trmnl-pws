@@ -52,13 +52,18 @@
         var solarData = {{str_bellmore_solar_power}};
         var solarEvents = {{js_solar_events}};
         var allSeriesPoints = gridData.concat(loadData).concat(solarData);
+        var xMin = allSeriesPoints.length ? Math.min.apply(null, allSeriesPoints.map(function(point) { return point[0]; })) : null;
+        var xMax = allSeriesPoints.length ? Math.max.apply(null, allSeriesPoints.map(function(point) { return point[0]; })) : null;
+        var visibleSolarEvents = solarEvents.filter(function(event) {
+            return xMin !== null && xMax !== null && event.timestamp_ms >= xMin && event.timestamp_ms <= xMax;
+        });
         var minPower = allSeriesPoints.length ? Math.min.apply(null, allSeriesPoints.map(function(point) { return point[1]; })) : 0;
         var maxPower = allSeriesPoints.length ? Math.max.apply(null, allSeriesPoints.map(function(point) { return point[1]; })) : 1;
         var yPadding = Math.max((maxPower - minPower) * 0.1, 0.5);
         minPower = Math.floor(minPower - yPadding);
         maxPower = Math.ceil(maxPower + yPadding);
         var markerLabelY = minPower + ((maxPower - minPower) * 0.06);
-        var solarEventSeries = solarEvents.map(function(event) {
+        var solarEventSeries = visibleSolarEvents.map(function(event) {
             return {
                 name: event.label,
                 data: [
@@ -75,7 +80,7 @@
                     enabled: false
                 }
             };
-        }).concat(solarEvents.map(function(event) {
+        }).concat(visibleSolarEvents.map(function(event) {
             return {
                 type: "scatter",
                 name: event.label,

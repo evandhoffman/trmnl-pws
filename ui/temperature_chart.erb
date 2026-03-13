@@ -39,9 +39,15 @@
     var data = {{js_temperature_data}};
     var indoorData = {{js_indoor_temperature_data}};
     var solarEvents = {{js_solar_events}};
+    var allChartPoints = data.concat(indoorData);
+    var xMin = allChartPoints.length ? Math.min.apply(null, allChartPoints.map(function(point) { return point[0]; })) : null;
+    var xMax = allChartPoints.length ? Math.max.apply(null, allChartPoints.map(function(point) { return point[0]; })) : null;
+    var visibleSolarEvents = solarEvents.filter(function(event) {
+      return xMin !== null && xMax !== null && event.timestamp_ms >= xMin && event.timestamp_ms <= xMax;
+    });
 
     // Find temperature range for better y-axis setup
-    const temperatures = data.concat(indoorData).map(point => point[1]);
+    const temperatures = allChartPoints.map(point => point[1]);
     let minTemp = Math.min(...temperatures);
     let maxTemp = Math.max(...temperatures);
 
@@ -73,7 +79,7 @@
     }
 
     const freezingHatchLines = buildFreezingHatchLines(minTemp);
-    const solarEventSeries = solarEvents.map(function(event) {
+    const solarEventSeries = visibleSolarEvents.map(function(event) {
       return {
         name: event.label,
         data: [
@@ -90,7 +96,7 @@
           enabled: false
         }
       };
-    }).concat(solarEvents.map(function(event) {
+    }).concat(visibleSolarEvents.map(function(event) {
       return {
         type: "scatter",
         name: event.label,
