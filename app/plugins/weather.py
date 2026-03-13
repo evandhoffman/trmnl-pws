@@ -220,27 +220,51 @@ from(bucket: "{bucket}")
         values.sort(key=lambda row: row[0])
         return [row[1] for row in values]
 
-    def _build_sparkline_points(
+    def _build_sparkline_metadata(
         self, values: List[float], width: int = 312, height: int = 108, padding: int = 8
-    ) -> str:
-        """Convert a numeric series into compact SVG polyline points."""
+    ) -> Dict[str, Any]:
+        """Convert a numeric series into compact SVG polyline points and labels."""
+        empty_state = {
+            "points": "",
+            "min_value": "",
+            "max_value": "",
+            "min_x": padding,
+            "min_y": height - padding,
+            "max_x": padding,
+            "max_y": padding,
+        }
         if len(values) < 2:
-            return ""
+            return empty_state
 
         min_value = min(values)
         max_value = max(values)
+        min_index = values.index(min_value)
+        max_index = values.index(max_value)
         value_span = max(max_value - min_value, 0.1)
         x_span = max(width - (padding * 2), 1)
         y_span = max(height - (padding * 2), 1)
 
+        coordinates = []
         points = []
         for index, value in enumerate(values):
             x = padding + (x_span * index / (len(values) - 1))
             normalized = (value - min_value) / value_span
             y = height - padding - (normalized * y_span)
+            coordinates.append((x, y))
             points.append(f"{x:.1f},{y:.1f}")
 
-        return " ".join(points)
+        min_x, min_y = coordinates[min_index]
+        max_x, max_y = coordinates[max_index]
+
+        return {
+            "points": " ".join(points),
+            "min_value": f"{min_value:.0f}°",
+            "max_value": f"{max_value:.0f}°",
+            "min_x": f"{min_x:.1f}",
+            "min_y": f"{min(height - 2, min_y + 18):.1f}",
+            "max_x": f"{max_x:.1f}",
+            "max_y": f"{max(padding + 10, max_y - 8):.1f}",
+        }
 
     def collect_data(self) -> Dict[str, Any]:
         """
@@ -396,11 +420,22 @@ from(bucket: "{bucket}")
         outdoor_temp_entity = entities.get("outdoor_temp")
         if outdoor_temp_entity:
             sparkline_values = self._query_temperature_history(outdoor_temp_entity, "°F")
-            result["temp_sparkline_points"] = self._build_sparkline_points(
-                sparkline_values
-            )
+            sparkline = self._build_sparkline_metadata(sparkline_values)
+            result["temp_sparkline_points"] = sparkline["points"]
+            result["temp_sparkline_min"] = sparkline["min_value"]
+            result["temp_sparkline_max"] = sparkline["max_value"]
+            result["temp_sparkline_min_x"] = sparkline["min_x"]
+            result["temp_sparkline_min_y"] = sparkline["min_y"]
+            result["temp_sparkline_max_x"] = sparkline["max_x"]
+            result["temp_sparkline_max_y"] = sparkline["max_y"]
         else:
             result["temp_sparkline_points"] = ""
+            result["temp_sparkline_min"] = ""
+            result["temp_sparkline_max"] = ""
+            result["temp_sparkline_min_x"] = "8"
+            result["temp_sparkline_min_y"] = "100"
+            result["temp_sparkline_max_x"] = "8"
+            result["temp_sparkline_max_y"] = "18"
 
         result.setdefault("tempf", 0)
         result.setdefault("tempinf", 0)

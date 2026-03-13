@@ -16,6 +16,24 @@
                   stroke-width="4"
                   stroke-linecap="round"
                   stroke-linejoin="round" />
+                <text
+                  x="{{temp_sparkline_min_x}}"
+                  y="{{temp_sparkline_min_y}}"
+                  fill="currentColor"
+                  opacity="0.65"
+                  font-size="14"
+                  text-anchor="middle">
+                  {{temp_sparkline_min}}
+                </text>
+                <text
+                  x="{{temp_sparkline_max_x}}"
+                  y="{{temp_sparkline_max_y}}"
+                  fill="currentColor"
+                  opacity="0.65"
+                  font-size="14"
+                  text-anchor="middle">
+                  {{temp_sparkline_max}}
+                </text>
               </svg>
             </div>
             <span class="value value--small">Inside {{tempinf | round}}°F</span>
