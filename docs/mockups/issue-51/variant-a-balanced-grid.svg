@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" width="1200" height="720">
+  <rect width="1200" height="720" fill="#f4f1e8"/>
+  <rect x="36" y="36" width="1128" height="648" rx="28" fill="#fbfaf5" stroke="#0f172a" stroke-width="10"/>
+  <text x="72" y="92" fill="#0f172a" font-family="Arial, sans-serif" font-size="28" font-weight="700">Issue 51 / Variant A</text>
+  <text x="72" y="126" fill="#475569" font-family="Arial, sans-serif" font-size="20">Balanced grid with sparkline using the dead lower-left space.</text>
+
+  <rect x="72" y="156" width="458" height="458" rx="30" fill="#111827"/>
+  <text x="108" y="236" fill="#f8fafc" font-family="Arial, sans-serif" font-size="160" font-weight="700">31F</text>
+  <text x="112" y="276" fill="#cbd5e1" font-family="Arial, sans-serif" font-size="32" font-weight="600">Outdoor temperature</text>
+  <polyline points="112,420 150,434 188,446 226,440 264,426 302,410 340,388 378,362 416,334 454,318 492,326"
+    fill="none" stroke="#f8fafc" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="492" cy="326" r="11" fill="#f8fafc"/>
+  <text x="112" y="482" fill="#cbd5e1" font-family="Arial, sans-serif" font-size="24">3h trend</text>
+  <text x="112" y="538" fill="#f8fafc" font-family="Arial, sans-serif" font-size="42" font-weight="700">Inside 68F</text>
+  <text x="112" y="580" fill="#94a3b8" font-family="Arial, sans-serif" font-size="22">Small secondary reading keeps the hero focused.</text>
+
+  <g transform="translate(564 156)">
+    <rect x="0" y="0" width="534" height="458" rx="30" fill="#e5e7eb"/>
+    <g font-family="Arial, sans-serif">
+      <rect x="24" y="24" width="150" height="122" rx="20" fill="#ffffff"/>
+      <text x="46" y="80" fill="#111827" font-size="42" font-weight="700">29F</text>
+      <text x="46" y="112" fill="#475569" font-size="22">Feels Like</text>
+
+      <rect x="192" y="24" width="150" height="122" rx="20" fill="#ffffff"/>
+      <text x="214" y="80" fill="#111827" font-size="42" font-weight="700">63%</text>
+      <text x="214" y="112" fill="#475569" font-size="22">Humidity</text>
+
+      <rect x="360" y="24" width="150" height="122" rx="20" fill="#ffffff"/>
+      <text x="382" y="76" fill="#111827" font-size="34" font-weight="700">29.91</text>
+      <text x="382" y="106" fill="#111827" font-size="24" font-weight="700">Rising</text>
+      <text x="382" y="132" fill="#475569" font-size="22">Pressure</text>
+
+      <rect x="24" y="168" width="150" height="122" rx="20" fill="#ffffff"/>
+      <text x="46" y="74" fill="#111827" font-size="34" font-weight="700" transform="translate(0 168)">NE 4 mph</text>
+      <text x="46" y="106" fill="#475569" font-size="22" transform="translate(0 168)">Gust 7 mph</text>
+      <text x="46" y="132" fill="#475569" font-size="22" transform="translate(0 168)">Wind</text>
+
+      <rect x="192" y="168" width="150" height="122" rx="20" fill="#ffffff"/>
+      <text x="214" y="224" fill="#111827" font-size="42" font-weight="700">18F</text>
+      <text x="214" y="256" fill="#475569" font-size="22">Dew Point</text>
+
+      <rect x="360" y="168" width="150" height="122" rx="20" fill="#ffffff"/>
+      <text x="382" y="224" fill="#111827" font-size="42" font-weight="700">2</text>
+      <text x="382" y="256" fill="#475569" font-size="22">UV Index</text>
+
+      <rect x="24" y="312" width="150" height="122" rx="20" fill="#ffffff"/>
+      <text x="46" y="368" fill="#111827" font-size="42" font-weight="700">418</text>
+      <text x="46" y="400" fill="#475569" font-size="22">Solar W/m2</text>
+
+      <rect x="192" y="312" width="150" height="122" rx="20" fill="#ffffff"/>
+      <text x="214" y="368" fill="#111827" font-size="42" font-weight="700">0.14</text>
+      <text x="214" y="400" fill="#475569" font-size="22">Rain Today</text>
+
+      <rect x="360" y="312" width="150" height="122" rx="20" fill="#ffffff"/>
+      <text x="382" y="364" fill="#111827" font-size="30" font-weight="700">2h ago</text>
+      <text x="382" y="396" fill="#475569" font-size="22">Last Rain</text>
+    </g>
+  </g>
+
+  <rect x="72" y="630" width="1026" height="20" rx="10" fill="#d6d3d1"/>
+  <text x="72" y="676" fill="#334155" font-family="Arial, sans-serif" font-size="22">Why this works: preserves the huge temperature, reuses the empty quadrant for trend, and moves rain into the 3x3 stats.</text>
+</svg>

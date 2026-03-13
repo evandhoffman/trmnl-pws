@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" width="1200" height="720">
+  <rect width="1200" height="720" fill="#eeebe2"/>
+  <rect x="36" y="36" width="1128" height="648" rx="28" fill="#faf8f1" stroke="#0f172a" stroke-width="10"/>
+  <text x="72" y="92" fill="#0f172a" font-family="Arial, sans-serif" font-size="28" font-weight="700">Issue 51 / Variant C</text>
+  <text x="72" y="126" fill="#475569" font-family="Arial, sans-serif" font-size="20">A denser dashboard that still removes the wasted rain row.</text>
+
+  <rect x="72" y="156" width="380" height="458" rx="28" fill="#111827"/>
+  <text x="104" y="236" fill="#f8fafc" font-family="Arial, sans-serif" font-size="148" font-weight="700">31F</text>
+  <text x="106" y="276" fill="#cbd5e1" font-family="Arial, sans-serif" font-size="28">Outdoor</text>
+  <polyline points="106,390 138,402 170,416 202,412 234,400 266,382 298,360 330,334 362,316 394,322 426,310"
+    fill="none" stroke="#f8fafc" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="106" y="438" fill="#cbd5e1" font-family="Arial, sans-serif" font-size="22">Trend</text>
+  <rect x="106" y="486" width="312" height="94" rx="18" fill="#1f2937"/>
+  <text x="132" y="536" fill="#f8fafc" font-family="Arial, sans-serif" font-size="34" font-weight="700">Inside 68F</text>
+  <text x="132" y="566" fill="#94a3b8" font-family="Arial, sans-serif" font-size="22">Indoor humidity 41%</text>
+
+  <g transform="translate(484 156)" font-family="Arial, sans-serif">
+    <rect x="0" y="0" width="614" height="458" rx="28" fill="#e5e7eb"/>
+
+    <rect x="24" y="24" width="270" height="94" rx="18" fill="#ffffff"/>
+    <text x="48" y="70" fill="#111827" font-size="38" font-weight="700">Pressure 29.91</text>
+    <text x="48" y="100" fill="#475569" font-size="22">Rising over 3h</text>
+
+    <rect x="320" y="24" width="270" height="94" rx="18" fill="#ffffff"/>
+    <text x="344" y="70" fill="#111827" font-size="38" font-weight="700">Wind NE 4 mph</text>
+    <text x="344" y="100" fill="#475569" font-size="22">Gust 7 mph</text>
+
+    <rect x="24" y="138" width="182" height="94" rx="18" fill="#ffffff"/>
+    <text x="48" y="192" fill="#111827" font-size="42" font-weight="700">29F</text>
+    <text x="48" y="218" fill="#475569" font-size="22">Feels Like</text>
+
+    <rect x="216" y="138" width="182" height="94" rx="18" fill="#ffffff"/>
+    <text x="240" y="192" fill="#111827" font-size="42" font-weight="700">63%</text>
+    <text x="240" y="218" fill="#475569" font-size="22">Humidity</text>
+
+    <rect x="408" y="138" width="182" height="94" rx="18" fill="#ffffff"/>
+    <text x="432" y="192" fill="#111827" font-size="42" font-weight="700">18F</text>
+    <text x="432" y="218" fill="#475569" font-size="22">Dew Point</text>
+
+    <rect x="24" y="252" width="182" height="94" rx="18" fill="#ffffff"/>
+    <text x="48" y="306" fill="#111827" font-size="42" font-weight="700">2</text>
+    <text x="48" y="332" fill="#475569" font-size="22">UV Index</text>
+
+    <rect x="216" y="252" width="182" height="94" rx="18" fill="#ffffff"/>
+    <text x="240" y="306" fill="#111827" font-size="42" font-weight="700">418</text>
+    <text x="240" y="332" fill="#475569" font-size="22">Solar W/m2</text>
+
+    <rect x="408" y="252" width="182" height="94" rx="18" fill="#ffffff"/>
+    <text x="432" y="306" fill="#111827" font-size="42" font-weight="700">0.14</text>
+    <text x="432" y="332" fill="#475569" font-size="22">Rain Today</text>
+
+    <rect x="24" y="366" width="566" height="68" rx="18" fill="#ffffff"/>
+    <text x="48" y="410" fill="#111827" font-size="34" font-weight="700">Last rain 2h ago</text>
+    <text x="298" y="410" fill="#475569" font-size="24">No separate bottom row required.</text>
+  </g>
+
+  <text x="72" y="676" fill="#334155" font-family="Arial, sans-serif" font-size="22">Why this works: it preserves more simultaneous data, but it is visually busier than Variant A.</text>
+</svg>

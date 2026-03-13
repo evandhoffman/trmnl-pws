@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" width="1200" height="720">
+  <rect width="1200" height="720" fill="#ece7dc"/>
+  <rect x="36" y="36" width="1128" height="648" rx="28" fill="#fffdf7" stroke="#1f2937" stroke-width="10"/>
+  <text x="72" y="92" fill="#111827" font-family="Arial, sans-serif" font-size="28" font-weight="700">Issue 51 / Variant B</text>
+  <text x="72" y="126" fill="#4b5563" font-family="Arial, sans-serif" font-size="20">Hero temperature with a wider trend band and lighter stat treatment.</text>
+
+  <rect x="72" y="156" width="686" height="458" rx="32" fill="#0b0f19"/>
+  <text x="114" y="250" fill="#f8fafc" font-family="Arial, sans-serif" font-size="192" font-weight="700">31F</text>
+  <text x="116" y="292" fill="#cbd5e1" font-family="Arial, sans-serif" font-size="30">Outdoor temperature</text>
+
+  <line x1="116" y1="410" x2="712" y2="410" stroke="#334155" stroke-width="3" stroke-dasharray="8 8"/>
+  <polyline points="116,456 170,470 224,486 278,478 332,462 386,436 440,398 494,368 548,340 602,328 656,334 710,320"
+    fill="none" stroke="#f8fafc" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="710" cy="320" r="12" fill="#f8fafc"/>
+  <text x="116" y="526" fill="#e2e8f0" font-family="Arial, sans-serif" font-size="28">3h outdoor trend</text>
+  <text x="116" y="574" fill="#94a3b8" font-family="Arial, sans-serif" font-size="22">The sparkline becomes a first-class element without competing with the hero number.</text>
+
+  <rect x="790" y="156" width="308" height="458" rx="32" fill="#e7e5e4"/>
+  <g font-family="Arial, sans-serif">
+    <rect x="818" y="184" width="252" height="74" rx="18" fill="#ffffff"/>
+    <text x="842" y="230" fill="#111827" font-size="34" font-weight="700">Inside 68F</text>
+
+    <rect x="818" y="274" width="252" height="74" rx="18" fill="#ffffff"/>
+    <text x="842" y="320" fill="#111827" font-size="34" font-weight="700">Feels 29F</text>
+
+    <rect x="818" y="364" width="252" height="74" rx="18" fill="#ffffff"/>
+    <text x="842" y="410" fill="#111827" font-size="34" font-weight="700">Humidity 63%</text>
+
+    <rect x="818" y="454" width="252" height="74" rx="18" fill="#ffffff"/>
+    <text x="842" y="500" fill="#111827" font-size="34" font-weight="700">Wind NE 4</text>
+
+    <rect x="818" y="544" width="120" height="42" rx="14" fill="#ffffff"/>
+    <text x="842" y="572" fill="#111827" font-size="22" font-weight="700">UV 2</text>
+    <rect x="950" y="544" width="120" height="42" rx="14" fill="#ffffff"/>
+    <text x="970" y="572" fill="#111827" font-size="22" font-weight="700">Solar 418</text>
+  </g>
+
+  <g transform="translate(72 630)" font-family="Arial, sans-serif">
+    <rect x="0" y="0" width="190" height="28" rx="14" fill="#d1d5db"/>
+    <text x="18" y="20" fill="#111827" font-size="18" font-weight="700">Pressure 29.91 rising</text>
+    <rect x="208" y="0" width="150" height="28" rx="14" fill="#d1d5db"/>
+    <text x="226" y="20" fill="#111827" font-size="18" font-weight="700">Rain today 0.14</text>
+    <rect x="376" y="0" width="160" height="28" rx="14" fill="#d1d5db"/>
+    <text x="394" y="20" fill="#111827" font-size="18" font-weight="700">Last rain 2h ago</text>
+  </g>
+  <text x="72" y="676" fill="#334155" font-family="Arial, sans-serif" font-size="22">Why this works: it maximizes glanceability from a distance, but it gives up some of the denser all-in-one dashboard feel.</text>
+</svg>
