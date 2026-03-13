@@ -40,7 +40,7 @@ def post_to_webhook(
         )
         return "failed"
 
-    logger.debug(f"Posting {payload_size} bytes to webhook {webhook_id[:8]}...")
+    logger.info(f"Posting {payload_size} bytes to webhook {webhook_id[:8]}...")
 
     try:
         response = requests.post(

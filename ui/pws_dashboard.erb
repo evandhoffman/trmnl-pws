@@ -1,102 +1,153 @@
 <!-- https://trmnl.com/plugin_settings/18870/markup/edit?size=markup_full -->
 <div class="view view--full">
-  <div class="layout layout--col gap--space-between">
+  <div class="layout layout--col">
+    <div class="grid grid--cols-3 gap--small" style="margin-bottom: 8px;">
+      <div class="item" style="background-color: #f2f2f2; border: 1px solid #d8d8d8;">
+        <div class="content">
+          <span class="value value--xsmall">Trend Window</span>
+          <span class="label">{{temp_sparkline_start}} to {{temp_sparkline_end}}</span>
+        </div>
+      </div>
+      <div class="item" style="background-color: #f2f2f2; border: 1px solid #d8d8d8;">
+        <div class="content">
+          <span class="value value--xsmall">Trend Low</span>
+          <span class="label">{{temp_sparkline_min}} • {{temp_sparkline_min_time}}</span>
+        </div>
+      </div>
+      <div class="item" style="background-color: #f2f2f2; border: 1px solid #d8d8d8;">
+        <div class="content">
+          <span class="value value--xsmall">Trend High</span>
+          <span class="label">{{temp_sparkline_max}} • {{temp_sparkline_max_time}}</span>
+        </div>
+      </div>
+    </div>
+
     <div class="grid">
-      <div class="col col--span-5 col--end">
+      <div class="col col--span-3 col--end">
         <div class="item h--full">
-          <div class="meta"></div>
           <div class="content">
             <span class="value value--xxxlarge">{{tempf | round}}°F</span>
-            <span class="label w--full">
-              Outdoor Temperature
-            </span>
+            <span class="label w--full">Outdoor Temperature</span>
+            <div style="margin-top: 16px; margin-bottom: 8px;">
+              <svg viewBox="0 0 312 108" style="width: 100%; height: 72px; display: block;">
+                <polyline
+                  points="{{temp_sparkline_points}}"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="4"
+                  stroke-linecap="round"
+                  stroke-linejoin="round" />
+                <text
+                  x="{{temp_sparkline_min_x}}"
+                  y="{{temp_sparkline_min_y}}"
+                  fill="currentColor"
+                  opacity="0.85"
+                  font-size="13"
+                  font-weight="600"
+                  stroke="#ececec"
+                  stroke-width="3"
+                  paint-order="stroke fill"
+                  text-anchor="middle">
+                  {{temp_sparkline_min}}
+                </text>
+                <text
+                  x="{{temp_sparkline_max_x}}"
+                  y="{{temp_sparkline_max_y}}"
+                  fill="currentColor"
+                  opacity="0.85"
+                  font-size="13"
+                  font-weight="600"
+                  stroke="#ececec"
+                  stroke-width="3"
+                  paint-order="stroke fill"
+                  text-anchor="middle">
+                  {{temp_sparkline_max}}
+                </text>
+                <text
+                  x="8"
+                  y="106"
+                  fill="currentColor"
+                  opacity="0.55"
+                  font-size="12"
+                  text-anchor="start">
+                  {{temp_sparkline_start}}
+                </text>
+                <text
+                  x="304"
+                  y="106"
+                  fill="currentColor"
+                  opacity="0.55"
+                  font-size="12"
+                  text-anchor="end">
+                  {{temp_sparkline_end}}
+                </text>
+              </svg>
+            </div>
+            <span class="value value--small">Inside {{tempinf | round}}°F</span>
+            <span class="label">Indoor humidity {{humidityin}}%</span>
           </div>
         </div>
       </div>
-      <div class="col col--span-4 col--end">
-        <div class="grid grid--cols-3 gap--medium">
-          <div class="item">
-            <div class="meta"></div>
-            <div class="icon">
-              <img class="weather-icon" src="/images/plugins/weather/wi-thermometer.svg" />
-            </div>
+      <div class="col col--span-6 col--end">
+        <div class="grid grid--cols-2 gap--medium">
+          <div class="item" style="background-color: #f6f6f6; border: 1px solid #dcdcdc;">
             <div class="content">
-              <span class="value value--small">{{feelsLike | round}}°</span>
+              <span class="value value--xsmall">Pressure {{baromrelin}} inHg</span>
+              <span class="label">{{pressure_trend_label}} over 3h</span>
+            </div>
+          </div>
+          <div class="item" style="background-color: #efefef; border: 1px solid #dcdcdc;">
+            <div class="content">
+              <span class="value value--xsmall">{{wind_compact}}</span>
+              <span class="label">{{wind_gust_pretty}}</span>
+            </div>
+          </div>
+          <div class="item" style="background-color: #f6f6f6; border: 1px solid #dcdcdc;">
+            <div class="content">
+              <span class="value value--xsmall">{{feelsLike | round}}°</span>
               <span class="label">Feels Like</span>
             </div>
           </div>
-
-          <div class="item">
-            <div class="meta"></div>
-            <div class="icon">
-              <img class="weather-icon" src="/images/plugins/weather/wi-raindrops.svg" />
-            </div>
+          <div class="item" style="background-color: #efefef; border: 1px solid #dcdcdc;">
             <div class="content">
-              <span class="value value--small">{{humidity}}%</span>
+              <span class="value value--xsmall">{{humidity}}%</span>
               <span class="label">Humidity</span>
             </div>
           </div>
-
-          <div class="item">
-            <div class="meta"></div>
-            <div class="icon">
-              <img class="weather-icon" src="/images/plugins/weather/wi-barometer.svg" />
-            </div>
+          <div class="item" style="background-color: #f6f6f6; border: 1px solid #dcdcdc;">
             <div class="content">
-              <span class="value value--xsmall">{{baromrelin}} inHg {{pressure_trend}}</span>
-              <span class="label">Pressure</span>
-            </div>
-          </div>
-
-          <div class="item">
-            <div class="meta"></div>
-            <div class="icon">
-              <img class="weather-icon" src="/images/plugins/weather/wi-strong-wind.svg" />
-            </div>
-            <div class="content">
-              <span class="value value--xsmall">{{windspeedmph | round}} / {{windgustmph | round}} mph</span>
-              <span class="label">{{winddir_pretty}}</span>
-            </div>
-          </div>
-
-          <div class="item">
-            <div class="meta"></div>
-            <div class="icon">
-              <img class="weather-icon" src="/images/plugins/weather/wi-thermometer.svg" />
-            </div>
-            <div class="content">
-              <span class="value value--small">{{dewPoint | round}}°</span>
+              <span class="value value--xsmall">{{dewPoint | round}}°</span>
               <span class="label">Dew Point</span>
             </div>
           </div>
-
-          <div class="item">
-            <div class="meta"></div>
-            <div class="icon">
-              <img class="weather-icon" src="/images/plugins/weather/wi-hot.svg" />
-            </div>
+          <div class="item" style="background-color: #efefef; border: 1px solid #dcdcdc;">
             <div class="content">
-              <span class="value value--small">{{uv | round}}</span>
+              <span class="value value--xsmall">{{uv | round}}</span>
               <span class="label">UV Index</span>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="w-full b-h-gray-5"></div>
-
-    <div class="grid">
-      <div class="col">
-        <div class="item">
-          <div class="meta"></div>
-          <div class="content">
-            <span class="value value--small">Last Rain: {{last_rain_date_pretty}}</span>
-            <span class="label">Today's Rain: {{dailyrainin | round: 2}} inches</span>
+          <div class="item" style="background-color: #f6f6f6; border: 1px solid #dcdcdc;">
+            <div class="content">
+              <span class="value value--xsmall">{{solarradiation | round}} W/m²</span>
+              <span class="label">Solar Radiation</span>
+            </div>
+          </div>
+          <div class="item" style="background-color: #efefef; border: 1px solid #dcdcdc;">
+            <div class="content">
+              <span class="value value--xsmall">{{dailyrainin | round: 2}} in</span>
+              <span class="label">Rain Today</span>
+            </div>
+          </div>
+          <div class="item" style="grid-column: span 2; background-color: #f1f1f1; border: 1px solid #dcdcdc;">
+            <div class="content">
+              <span class="value value--xsmall">{{last_rain_date_pretty}}</span>
+              <span class="label">Last Rain</span>
+            </div>
           </div>
         </div>
       </div>
     </div>
+
   </div>
 
   <div class="title_bar">

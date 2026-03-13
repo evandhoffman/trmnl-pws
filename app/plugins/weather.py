@@ -2,10 +2,14 @@
 
 import logging
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional, Iterable
+from typing import Dict, Any, Optional, Iterable, List
 from app.plugins import BasePlugin
 from app.utils.formatting import format_timestamp_for_display, format_relative_time
-from app.utils.conversions import format_wind_description, round_value
+from app.utils.conversions import (
+    format_wind_description,
+    format_compact_wind,
+    round_value,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +120,7 @@ import "timezone"
 option location = timezone.location(name: "{query_tz}")
 
 from(bucket: "{bucket}")
-    |> range(start: -30d)
+    |> range(start: -1825d)
     |> filter(fn: (r) => r["entity_id"] == "{entity_id}")
     |> filter(fn: (r) => r["_field"] == "value")
     |> filter(fn: (r) => r["_value"] > 0.0)
@@ -126,6 +130,37 @@ from(bucket: "{bucket}")
         query_api = self.influx_client.query_api()
         tables = query_api.query(flux_query)
 
+        for table in tables:
+            for record in table.records:
+                return record.get_time()
+
+        return None
+
+    def _query_last_rain_from_daily_total(self, entity_id: str) -> Optional[datetime]:
+        """
+        Query the last time daily rain increased.
+
+        This is a fallback when precipitation_intensity is not configured
+        or does not produce usable non-zero samples.
+        """
+        bucket = self.get_bucket()
+        query_tz = self.get_influx_query_timezone()
+
+        flux_query = f"""
+import "timezone"
+
+option location = timezone.location(name: "{query_tz}")
+
+from(bucket: "{bucket}")
+    |> range(start: -365d)
+    |> filter(fn: (r) => r["entity_id"] == "{entity_id}")
+    |> filter(fn: (r) => r["_field"] == "value")
+    |> difference(nonNegative: true)
+    |> filter(fn: (r) => r["_value"] > 0.0)
+    |> last()
+        """
+
+        tables = self.influx_client.query_api().query(flux_query)
         for table in tables:
             for record in table.records:
                 return record.get_time()
@@ -172,6 +207,116 @@ from(bucket: "{bucket}")
         if delta < -0.06:
             return "↓"
         return "→"
+
+    def _get_pressure_trend_label(self, trend_symbol: str) -> str:
+        """Convert pressure trend arrows into compact labels."""
+        if trend_symbol == "↑":
+            return "Rising"
+        if trend_symbol == "↓":
+            return "Falling"
+        return "Steady"
+
+    def _query_temperature_history(
+        self,
+        entity_id: str,
+        measurement: str,
+        hours_back: int = 3,
+        aggregation_minutes: int = 15,
+    ) -> List[tuple[datetime, float]]:
+        """Query recent temperature history for sparkline rendering."""
+        bucket = self.get_bucket()
+        query_tz = self.get_influx_query_timezone()
+
+        flux_query = f"""
+import "timezone"
+
+option location = timezone.location(name: "{query_tz}")
+
+from(bucket: "{bucket}")
+    |> range(start: -{hours_back}h)
+    |> filter(fn: (r) => r["entity_id"] == "{entity_id}")
+    |> filter(fn: (r) => r["_measurement"] == "{measurement}")
+    |> filter(fn: (r) => r["_field"] == "value")
+    |> aggregateWindow(every: {aggregation_minutes}m, fn: mean, createEmpty: false)
+        """
+
+        values = []
+        tables = self.influx_client.query_api().query(flux_query)
+        for table in tables:
+            for record in table.records:
+                value = record.get_value()
+                if value is not None and -50 < value < 150:
+                    values.append((record.get_time(), round_value(value, 1)))
+
+        values.sort(key=lambda row: row[0])
+        return values
+
+    def _build_sparkline_metadata(
+        self,
+        readings: List[tuple[datetime, float]],
+        width: int = 312,
+        height: int = 108,
+        padding: int = 8,
+    ) -> Dict[str, Any]:
+        """Convert a numeric series into compact SVG polyline points and labels."""
+        empty_state = {
+            "points": "",
+            "min_value": "",
+            "max_value": "",
+            "min_time": "",
+            "max_time": "",
+            "start_time": "",
+            "end_time": "",
+            "min_x": padding,
+            "min_y": height - padding,
+            "max_x": padding,
+            "max_y": padding,
+        }
+        if len(readings) < 2:
+            return empty_state
+
+        values = [value for _, value in readings]
+        min_value = min(values)
+        max_value = max(values)
+        min_index = values.index(min_value)
+        max_index = values.index(max_value)
+        value_span = max(max_value - min_value, 0.1)
+        x_span = max(width - (padding * 2), 1)
+        y_span = max(height - (padding * 2), 1)
+
+        coordinates = []
+        points = []
+        for index, value in enumerate(values):
+            x = padding + (x_span * index / (len(values) - 1))
+            normalized = (value - min_value) / value_span
+            y = height - padding - (normalized * y_span)
+            coordinates.append((x, y))
+            points.append(f"{x:.1f},{y:.1f}")
+
+        min_x, min_y = coordinates[min_index]
+        max_x, max_y = coordinates[max_index]
+
+        return {
+            "points": " ".join(points),
+            "min_value": f"{min_value:.0f}°",
+            "max_value": f"{max_value:.0f}°",
+            "min_time": format_timestamp_for_display(
+                readings[min_index][0], self.get_timezone(), "%-I:%M%p"
+            ).lower(),
+            "max_time": format_timestamp_for_display(
+                readings[max_index][0], self.get_timezone(), "%-I:%M%p"
+            ).lower(),
+            "start_time": format_timestamp_for_display(
+                readings[0][0], self.get_timezone(), "%-I:%M%p"
+            ).lower(),
+            "end_time": format_timestamp_for_display(
+                readings[-1][0], self.get_timezone(), "%-I:%M%p"
+            ).lower(),
+            "min_x": f"{min_x:.1f}",
+            "min_y": f"{min(height - 2, min_y + 18):.1f}",
+            "max_x": f"{max_x:.1f}",
+            "max_y": f"{max(padding + 10, max_y - 8):.1f}",
+        }
 
     def collect_data(self) -> Dict[str, Any]:
         """
@@ -272,6 +417,14 @@ from(bucket: "{bucket}")
         # Create formatted wind description
         if wind_speed is not None and wind_dir is not None:
             result["winddir_pretty"] = format_wind_description(wind_speed, wind_dir)
+            result["wind_compact"] = format_compact_wind(wind_speed, wind_dir)
+        elif wind_speed is not None:
+            result["wind_compact"] = f"{round_value(wind_speed, 0):.0f} mph"
+
+        if "windgustmph" in result:
+            result["wind_gust_pretty"] = f"Gust {round_value(result['windgustmph'], 0):.0f} mph"
+        else:
+            result["wind_gust_pretty"] = "Gust --"
 
         # Pressure (inHg)
         if pressure_entity:
@@ -285,6 +438,9 @@ from(bucket: "{bucket}")
                 result["pressure_trend"] = self._get_pressure_trend(
                     current_pressure,
                     round_value(prior_pressure[0], 2) if prior_pressure else None,
+                )
+                result["pressure_trend_label"] = self._get_pressure_trend_label(
+                    result["pressure_trend"]
                 )
 
         # Rain (in)
@@ -308,8 +464,55 @@ from(bucket: "{bucket}")
         # Query last rain time
         precip_entity = entities.get("precipitation_intensity")
         last_rain_time = self._query_last_rain(precip_entity) if precip_entity else None
+        if not last_rain_time and rain_entity:
+            last_rain_time = self._query_last_rain_from_daily_total(rain_entity)
         if last_rain_time:
             result["last_rain_date_pretty"] = format_relative_time(last_rain_time)
+        else:
+            result["last_rain_date_pretty"] = "unknown"
+
+        outdoor_temp_entity = entities.get("outdoor_temp")
+        if outdoor_temp_entity:
+            sparkline_readings = self._query_temperature_history(
+                outdoor_temp_entity, "°F"
+            )
+            sparkline = self._build_sparkline_metadata(sparkline_readings)
+            result["temp_sparkline_points"] = sparkline["points"]
+            result["temp_sparkline_min"] = sparkline["min_value"]
+            result["temp_sparkline_max"] = sparkline["max_value"]
+            result["temp_sparkline_min_time"] = sparkline["min_time"]
+            result["temp_sparkline_max_time"] = sparkline["max_time"]
+            result["temp_sparkline_start"] = sparkline["start_time"]
+            result["temp_sparkline_end"] = sparkline["end_time"]
+            result["temp_sparkline_min_x"] = sparkline["min_x"]
+            result["temp_sparkline_min_y"] = sparkline["min_y"]
+            result["temp_sparkline_max_x"] = sparkline["max_x"]
+            result["temp_sparkline_max_y"] = sparkline["max_y"]
+        else:
+            result["temp_sparkline_points"] = ""
+            result["temp_sparkline_min"] = ""
+            result["temp_sparkline_max"] = ""
+            result["temp_sparkline_min_time"] = ""
+            result["temp_sparkline_max_time"] = ""
+            result["temp_sparkline_start"] = ""
+            result["temp_sparkline_end"] = ""
+            result["temp_sparkline_min_x"] = "8"
+            result["temp_sparkline_min_y"] = "100"
+            result["temp_sparkline_max_x"] = "8"
+            result["temp_sparkline_max_y"] = "18"
+
+        result.setdefault("tempf", 0)
+        result.setdefault("tempinf", 0)
+        result.setdefault("humidityin", 0)
+        result.setdefault("feelsLike", 0)
+        result.setdefault("humidity", 0)
+        result.setdefault("dewPoint", 0)
+        result.setdefault("uv", 0)
+        result.setdefault("solarradiation", 0)
+        result.setdefault("dailyrainin", 0)
+        result.setdefault("wind_compact", "--")
+        result.setdefault("baromrelin", "--")
+        result.setdefault("pressure_trend_label", "Steady")
 
         # Add formatted current timestamp
         result["date_pretty"] = format_timestamp_for_display(
