@@ -51,35 +51,67 @@
         var loadData = {{str_bellmore_load_power}};
         var solarData = {{str_bellmore_solar_power}};
         var solarEvents = {{js_solar_events}};
-        var solarEventLines = solarEvents.map(function(event) {
+        var allSeriesPoints = gridData.concat(loadData).concat(solarData);
+        var minPower = allSeriesPoints.length ? Math.min.apply(null, allSeriesPoints.map(function(point) { return point[1]; })) : 0;
+        var maxPower = allSeriesPoints.length ? Math.max.apply(null, allSeriesPoints.map(function(point) { return point[1]; })) : 1;
+        var yPadding = Math.max((maxPower - minPower) * 0.1, 0.5);
+        minPower = Math.floor(minPower - yPadding);
+        maxPower = Math.ceil(maxPower + yPadding);
+        var markerLabelY = minPower + ((maxPower - minPower) * 0.06);
+        var solarEventSeries = solarEvents.map(function(event) {
             return {
-                value: event.timestamp_ms,
+                name: event.label,
+                data: [
+                    [event.timestamp_ms, minPower],
+                    [event.timestamp_ms, maxPower]
+                ],
                 color: "#000000",
-                width: event.label === "Noon" ? 2 : 1,
+                lineWidth: event.label === "Noon" ? 2 : 1,
                 dashStyle: event.label === "Noon" ? "Solid" : "ShortDot",
-                zIndex: 0,
-                label: {
-                    text: event.label,
-                    rotation: 0,
-                    y: 12,
+                marker: { enabled: false },
+                enableMouseTracking: false,
+                showInLegend: false,
+                dataLabels: {
+                    enabled: false
+                }
+            };
+        }).concat(solarEvents.map(function(event) {
+            return {
+                type: "scatter",
+                name: event.label,
+                data: [[event.timestamp_ms, markerLabelY]],
+                color: "#000000",
+                marker: {
+                    enabled: false
+                },
+                enableMouseTracking: false,
+                showInLegend: false,
+                dataLabels: {
+                    enabled: true,
+                    formatter: function() {
+                        return event.label;
+                    },
+                    align: "left",
                     x: 2,
+                    y: 0,
                     style: {
                         color: "#000000",
-                        fontSize: "11px"
+                        fontSize: "11px",
+                        textOutline: "none"
                     }
                 }
             };
-        });
+        }));
 
         // recommended configs to achieve the e-ink friendly aesthetic
         var createChart = function() {
             new Chartkick["LineChart"](
             "solar-chart",
-            [
+            solarEventSeries.concat([
                 {name: "Grid Power", data: gridData, dashStyle: "dash"},
                 {name: "House load", data: loadData, dashStyle: "dot"},
                 {name: "Solar Generation", data: solarData, dashStyle: "solid"},
-            ],
+            ]),
             {
                 adapter: "highcharts",
                 suffix: "kW",
@@ -122,6 +154,8 @@
                         title: {
                           text: 'Power (kW)'
                         },
+                        min: minPower,
+                        max: maxPower,
                         labels: {
                             style: {
                                 fontSize: "16px",
@@ -149,8 +183,7 @@
                         tickLength: 0,
                         gridLineWidth: 1,
                         gridLineColor: "#000000",
-                        tickPixelInterval: 60,
-                        plotLines: solarEventLines
+                        tickPixelInterval: 60
                     }
                 }
             });

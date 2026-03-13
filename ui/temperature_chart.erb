@@ -73,34 +73,59 @@
     }
 
     const freezingHatchLines = buildFreezingHatchLines(minTemp);
-    const solarEventLines = solarEvents.map(function(event) {
+    const solarEventSeries = solarEvents.map(function(event) {
       return {
-        value: event.timestamp_ms,
+        name: event.label,
+        data: [
+          [event.timestamp_ms, minTemp],
+          [event.timestamp_ms, maxTemp]
+        ],
         color: "#000000",
-        width: event.label === "Noon" ? 2 : 1,
+        lineWidth: event.label === "Noon" ? 2 : 1,
         dashStyle: event.label === "Noon" ? "Solid" : "ShortDot",
-        zIndex: 0,
-        label: {
-          text: event.label,
-          rotation: 0,
-          y: 12,
+        marker: { enabled: false },
+        enableMouseTracking: false,
+        showInLegend: false,
+        dataLabels: {
+          enabled: false
+        }
+      };
+    }).concat(solarEvents.map(function(event) {
+      return {
+        type: "scatter",
+        name: event.label,
+        data: [[event.timestamp_ms, minTemp + ((maxTemp - minTemp) * 0.06)]],
+        color: "#000000",
+        marker: {
+          enabled: false
+        },
+        enableMouseTracking: false,
+        showInLegend: false,
+        dataLabels: {
+          enabled: true,
+          formatter: function() {
+            return event.label;
+          },
+          align: "left",
           x: 2,
+          y: 0,
           style: {
             color: "#000000",
-            fontSize: "11px"
+            fontSize: "11px",
+            textOutline: "none"
           }
         }
       };
-    });
+    }));
 
     // recommended configs to achieve the e-ink friendly aesthetic
     var createChart = function() {
       new Chartkick["LineChart"](
         "weather-chart",
-        [
+        solarEventSeries.concat([
           {name: "Outdoor", data: data, dashStyle: "solid"},
           {name: "Indoor", data: indoorData, dashStyle: "shortdash"}
-        ].filter(series => series.data.length > 0),
+        ]).filter(series => series.data.length > 0),
         {
           adapter: "highcharts",
           suffix: "°F",
@@ -173,8 +198,7 @@
               tickLength: 0,
               gridLineWidth: 1,
               gridLineColor: "#000000",
-              tickPixelInterval: 60,
-              plotLines: solarEventLines
+              tickPixelInterval: 60
             }
           }
         });
