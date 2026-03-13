@@ -5,11 +5,12 @@ import time
 import signal
 import logging
 import pytz
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List
 from app.config import load_config, load_secrets
 from app.influx_client import create_client
 from app.webhook import post_to_webhook
+from app.utils.solar import get_solar_events_between
 from app.state import (
     load_state,
     save_state,
@@ -36,6 +37,39 @@ logger = logging.getLogger(__name__)
 
 # Global flag for graceful shutdown
 shutdown_requested = False
+
+
+def log_startup_solar_events(config: dict) -> None:
+    """Log configured coordinates and today's solar events at startup."""
+    general = config.get("general", {})
+    latitude = general.get("latitude")
+    longitude = general.get("longitude")
+    timezone_name = general.get("timezone", "America/New_York")
+
+    logger.info("Timezone: %s", timezone_name)
+    logger.info("Coordinates: lat=%s lon=%s", latitude, longitude)
+
+    if latitude in (None, "") or longitude in (None, ""):
+        logger.info("Startup solar events: disabled (latitude/longitude not configured)")
+        return
+
+    try:
+        latitude = float(latitude)
+        longitude = float(longitude)
+    except (TypeError, ValueError):
+        logger.info("Startup solar events: disabled (invalid latitude/longitude)")
+        return
+
+    tz = pytz.timezone(timezone_name)
+    local_now = datetime.now(timezone.utc).astimezone(tz)
+    start = tz.localize(datetime.combine(local_now.date(), datetime.min.time())).astimezone(timezone.utc)
+    end = start + timedelta(days=1)
+    events = get_solar_events_between(start, end, latitude, longitude, timezone_name)
+
+    logger.info(
+        "Startup solar events: %s",
+        ", ".join(f"{event['kind']}={event['time_pretty']}" for event in events) or "none",
+    )
 
 
 def signal_handler(signum, frame):
@@ -146,6 +180,7 @@ def main():
 
         logger.info(f"Poll interval: {poll_interval} seconds")
         logger.info(f"TRMNL+ subscriber: {trmnl_plus}")
+        log_startup_solar_events(config)
 
         # Main processing loop
         iteration = 0
