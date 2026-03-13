@@ -63,16 +63,22 @@ class TemperatureChartPlugin(BasePlugin):
     ) -> str:
         coordinates = self.get_coordinates()
         if not coordinates:
+            logger.info("Temperature chart solar annotations disabled: no coordinates configured")
             return "[]"
 
         combined_points = outdoor_points + indoor_points
         if not combined_points:
+            logger.info("Temperature chart solar annotations skipped: no chart points available")
             return "[]"
 
         latitude, longitude = coordinates
         start = datetime.fromtimestamp(min(point[0] for point in combined_points) / 1000, tz=timezone.utc)
         end = datetime.fromtimestamp(max(point[0] for point in combined_points) / 1000, tz=timezone.utc)
         events = get_solar_events_between(start, end, latitude, longitude, self.get_timezone())
+        logger.info(
+            "Temperature chart solar annotations: %s",
+            ", ".join(f"{event['kind']}={event['time_pretty']}" for event in events) or "none in range",
+        )
         return json.dumps(events)
 
     def collect_data(self) -> Dict[str, Any]:

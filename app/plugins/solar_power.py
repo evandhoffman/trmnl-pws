@@ -24,18 +24,24 @@ class SolarPowerPlugin(BasePlugin):
     def _build_solar_event_payload(self, sensors_data: Dict[str, List[List[float]]]) -> str:
         coordinates = self.get_coordinates()
         if not coordinates:
+            logger.info("Solar power chart annotations disabled: no coordinates configured")
             return "[]"
 
         all_points = [
             point for sensor_points in sensors_data.values() for point in sensor_points
         ]
         if not all_points:
+            logger.info("Solar power chart annotations skipped: no chart points available")
             return "[]"
 
         latitude, longitude = coordinates
         start = datetime.fromtimestamp(min(point[0] for point in all_points) / 1000, tz=timezone.utc)
         end = datetime.fromtimestamp(max(point[0] for point in all_points) / 1000, tz=timezone.utc)
         events = get_solar_events_between(start, end, latitude, longitude, self.get_timezone())
+        logger.info(
+            "Solar power chart annotations: %s",
+            ", ".join(f"{event['kind']}={event['time_pretty']}" for event in events) or "none in range",
+        )
         return json.dumps(events)
 
     def collect_data(self) -> Dict[str, Any]:
