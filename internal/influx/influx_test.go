@@ -240,6 +240,34 @@ func TestBadValue(t *testing.T) {
 	}
 }
 
+// NaN and infinite values are bad readings. ParseFloat accepts them, so the
+// parser must refuse them itself.
+func TestNonFiniteValueRefused(t *testing.T) {
+	const token = "s3cr3t-token-value"
+	for _, bad := range []string{"NaN", "+Inf", "-Inf", "Inf", "infinity"} {
+		t.Run(bad, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				_, _ = w.Write([]byte(",result,table,_time,_value,entity_id\n" +
+					",_result,0,2026-10-24T00:00:00Z,1.5,solar_power\n" +
+					",_result,0,2026-10-24T00:05:00Z," + bad + ",solar_power\n"))
+			}))
+			defer srv.Close()
+
+			c := New(srv.URL, "bellmore", "home", token, 5*time.Second)
+			_, err := c.Points(context.Background(), []string{"solar_power"}, testStart, testEnd, seedBack)
+			if err == nil {
+				t.Fatal("want error")
+			}
+			if !strings.Contains(err.Error(), "bad _value") {
+				t.Errorf("error = %v, want bad _value", err)
+			}
+			if strings.Contains(err.Error(), token) {
+				t.Errorf("error holds the token: %v", err)
+			}
+		})
+	}
+}
+
 func TestNoEntitiesSendsNothing(t *testing.T) {
 	called := false
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
