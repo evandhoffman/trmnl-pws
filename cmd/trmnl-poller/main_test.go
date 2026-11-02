@@ -116,10 +116,19 @@ func TestServeAnswersAndShutsDown(t *testing.T) {
 	done := make(chan error, 1)
 	go func() { done <- serveOn(ctx, ln, testConfig(), "test-version") }()
 
+	// Keep-alive is off on purpose. With keep-alive, the transport can dial a
+	// second connection that it never uses, and parks it idle. The server sees
+	// a connection that sent no bytes. Shutdown does not close such a
+	// connection until it is 5 s old, so the shutdown below could take 5 s on a
+	// slow runner. This is how net/http behaves; it is not a bug in serveOn.
+	client := &http.Client{
+		Transport: &http.Transport{DisableKeepAlives: true},
+		Timeout:   5 * time.Second,
+	}
 	base := "http://" + ln.Addr().String()
 	req, _ := http.NewRequest(http.MethodGet, base+"/v1/countdown", nil)
 	req.Header.Set("X-Poller-Key", goodKey)
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +137,7 @@ func TestServeAnswersAndShutsDown(t *testing.T) {
 		t.Fatalf("with key: status %d", resp.StatusCode)
 	}
 
-	resp, err = http.Get(base + "/v1/countdown")
+	resp, err = client.Get(base + "/v1/countdown")
 	if err != nil {
 		t.Fatal(err)
 	}
