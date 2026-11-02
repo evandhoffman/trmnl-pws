@@ -115,7 +115,10 @@ func TestPointsRequest(t *testing.T) {
 		// start - 400 days, then start.
 		`range(start: 2025-09-18T04:00:00Z, stop: 2026-10-23T04:00:00Z)`,
 		`range(start: 2026-10-23T04:00:00Z, stop: 2026-10-31T04:00:00Z)`,
-		`last()`,
+		`|> last()
+  |> group(columns: ["entity_id"])
+  |> sort(columns: ["_time"])
+  |> last()`,
 		`union(`,
 		`sort(columns: ["_time"])`,
 	} {
@@ -182,6 +185,29 @@ func TestErrorHidesToken(t *testing.T) {
 				t.Errorf("error lacks the status: %v", err)
 			}
 		})
+	}
+}
+
+func TestErrorHidesTokenAcrossCut(t *testing.T) {
+	const token = "Zq7kP2mXw9TbV4nR"
+	// The token starts at byte 190 and ends at byte 206, across the 200-byte cut.
+	msg := strings.Repeat("a", 190) + token + strings.Repeat("b", 50)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		out, _ := json.Marshal(map[string]string{"code": "unauthorized", "message": msg})
+		_, _ = w.Write(out)
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "bellmore", "home", token, 5*time.Second)
+	_, err := c.Points(context.Background(), []string{"solar_power"}, testStart, testEnd, seedBack)
+	if err == nil {
+		t.Fatal("want error")
+	}
+	for i := 0; i+8 <= len(token); i++ {
+		if strings.Contains(err.Error(), token[i:i+8]) {
+			t.Errorf("error holds token run %q: %v", token[i:i+8], err)
+		}
 	}
 }
 

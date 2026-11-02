@@ -110,7 +110,9 @@ func (c *Client) query(entities []string, start, end time.Time, seedBack time.Du
 	return fmt.Sprintf(`seed = %[1]s
   |> range(start: %[3]s, stop: %[4]s)
   |> %[2]s
+  |> last()
   |> group(columns: ["entity_id"])
+  |> sort(columns: ["_time"])
   |> last()
 window = %[1]s
   |> range(start: %[4]s, stop: %[5]s)
@@ -163,14 +165,15 @@ func (c *Client) post(ctx context.Context, body []byte) ([]byte, error) {
 		return nil, fmt.Errorf("influx: response over %d bytes", maxBodyBytes)
 	}
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return nil, c.scrub(fmt.Errorf("influx: status %d%s", resp.StatusCode, apiMessage(data)))
+		return nil, c.scrub(fmt.Errorf("influx: status %d%s", resp.StatusCode, c.apiMessage(data)))
 	}
 	return data, nil
 }
 
 // apiMessage returns ": code: message" from an InfluxDB JSON error body, or
-// an empty string when the body has another shape.
-func apiMessage(data []byte) string {
+// an empty string when the body has another shape. It removes the token
+// before it shortens the message, so a cut cannot leave a token prefix.
+func (c *Client) apiMessage(data []byte) string {
 	var e struct {
 		Code    string `json:"code"`
 		Message string `json:"message"`
@@ -178,19 +181,27 @@ func apiMessage(data []byte) string {
 	if json.Unmarshal(data, &e) != nil || (e.Code == "" && e.Message == "") {
 		return ""
 	}
-	msg := e.Message
+	msg := c.redact(e.Message)
 	if len(msg) > maxMsgBytes {
-		msg = msg[:maxMsgBytes]
+		msg = strings.ToValidUTF8(msg[:maxMsgBytes], "")
 	}
-	return ": " + e.Code + ": " + msg
+	return ": " + c.redact(e.Code) + ": " + msg
+}
+
+// redact replaces the token in s.
+func (c *Client) redact(s string) string {
+	if c.token == "" {
+		return s
+	}
+	return strings.ReplaceAll(s, c.token, "[redacted]")
 }
 
 // scrub returns an error with the token removed from its text.
 func (c *Client) scrub(err error) error {
-	if c.token == "" || !strings.Contains(err.Error(), c.token) {
-		return err
+	if msg := err.Error(); c.redact(msg) != msg {
+		return errors.New(c.redact(msg))
 	}
-	return errors.New(strings.ReplaceAll(err.Error(), c.token, "[redacted]"))
+	return err
 }
 
 // parse reads every table of an annotated or plain CSV response. It maps
