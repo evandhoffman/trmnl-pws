@@ -98,117 +98,232 @@ unescaped comma, unless `LOCATION` is `No destination specified`.**
 Either test alone separates the 3 trips from the 8 items in this feed. The
 code should require both, so a change to one does not let items through.
 
+## Evidence labels
+
+Steps 2 and 3 label each finding:
+
+- **[observed]**: seen in a real call on 2026-11-02 against a scratch
+  private plugin.
+- **[spec]**: read from https://trmnl.com/api-docs/openapi.json or
+  `trmnl <cmd> --help` only.
+
+Step 1 is all observed.
+
 ## How the TRMNL CLI calls were run
 
-Each `op run` needs 1Password to be unlocked, and took about 50 s on this
-laptop. To pay that cost once, one `op run` wraps a whole shell script of
-CLI calls:
+The CLI reads `TRMNL_API_KEY` from the environment. Two ways to supply it
+without a shell variable or a command-line value:
 
 ```sh
+# 1Password (needs an unlocked app; each op run took about 50 s here)
 TRMNL_API_KEY="op://Code Secrets/trmnl-pws-trmnl-api-key/password" \
   op run -- sh batch.sh
+
+# a 0600 env file, loaded inside one command only
+sh -c 'set -a; . "$CREDS"/trmnl.env; set +a; exec sh batch.sh'
 ```
 
-Each CLI call inside the script runs with a hard kill after 45 s:
+Each CLI call inside `batch.sh` runs with a hard kill after 45 s:
 
 ```sh
-trmnl "$@" --rsh-timeout 30s & p=$!
+if [ -n "$IN" ]; then trmnl "$@" --rsh-timeout 30s < "$IN" & p=$!
+else trmnl "$@" --rsh-timeout 30s & p=$!; fi
 ( exec </dev/null >/dev/null 2>&1; sleep 45; kill -9 $p && touch HUNG.$p ) &
 wait $p
 ```
 
-Caveat: the watchdog subshell must close its stdout and stderr (`exec
->/dev/null 2>&1`). If it keeps them, `op run` waits for the leftover
-`sleep 45` to close the pipe, and every batch takes at least 45 s more.
+Caveats [observed]:
 
-`trmnl auth inspect` showed `bearer_auth: configured`, 157 of 157 secured
-operations callable.
+- A background job in `sh` reads stdin from `/dev/null`. A JSON body on
+  the pipe is lost (`Request body is required`). Redirect the body file
+  explicitly onto the backgrounded command, as above.
+- The watchdog subshell must close stdout and stderr. If it keeps them,
+  `op run` waits for the leftover `sleep 45`.
+- No call hung. Every call took 0.04 s to 0.23 s, measured around the
+  `trmnl` process. This includes `get-plugin-setting-files` (13 calls,
+  0.11 s to 0.23 s), which hung for other plugins on 2026-11-01.
+- `trmnl auth inspect`: `bearer_auth: configured`, 157 of 157 secured
+  operations callable. The key still lacks the `delete` capability (see
+  below), so "callable" does not mean "permitted".
 
 ## Step 2: TRMNL import format
 
-**Status: partly done.** 1Password locked after the first batch
-(`error initializing client: authorization timeout`, 6 tries from 00:03 to
-00:14 EST on 2026-11-02). The import, the read-back, the
-`refresh_interval` tests and the delete did not run.
-
-### Done: create the scratch plugin
+### Create [observed]
 
 ```sh
 trmnl create-plugin-setting 'name: scratch-import-test, plugin_id: 37' --rsh-timeout 30s
 ```
 
-Request body: `{"name": "scratch-import-test", "plugin_id": 37}`. Took
-0.11 s. Response (200):
+Body: `{"name": "scratch-import-test", "plugin_id": 37}`. 0.11 s. The
+response `data` has `id`, `plugin_id: 37`, `strategy: "polling"`,
+`refresh_interval: null`, `read_only?: false`,
+`sync.source_kinds: ["custom"]`.
 
-```json
-{"data":{"id":<id>,"name":"scratch-import-test","description":null,
- "plugin_id":37,"refresh_interval":null,"health_notification_enabled":false,
- "icon_url":"https://trmnl.com/images/plugins/private_plugin.svg",
- "icon_content_type":null,"strategy":"polling","read_only?":false,
- "sync":{"source_kinds":["custom"],"upload_allowed":true,"reason":null,
- "action_id":null}}}
+### Import [observed]
+
+```sh
+trmnl import-plugin-setting-files <id> -o json --rsh-timeout 30s < body.json
 ```
 
-- A new private plugin starts with `strategy: polling` and
-  `refresh_interval: null`.
-- `list-plugin-settings` took 0.14 s and did not hang.
-
-### Not yet run: import and read-back
-
-Planned request for `trmnl import-plugin-setting-files <id>`, JSON on stdin:
+`body.json`:
 
 ```json
 {"files": {
-  "settings.yml": "---\nstrategy: polling\npolling_url: https://example.com/trmnl/dummy.json\npolling_verb: get\npolling_headers: x-poller-key=dummy-not-a-secret&accept=application/json\nrefresh_interval: 60\nname: scratch-import-test\n",
+  "settings.yml": "---\nstrategy: polling\npolling_url: https://example.com/trmnl/dummy.json\npolling_verb: get\npolling_headers: |-\n  X-Poller-Key: <value>\nrefresh_interval: 60\nname: scratch-import-test\n",
   "full.liquid": "<div class=\"title\">{{ title }}</div>"
 }}
 ```
 
-Per the API spec: `settings.yml` is required; a markup file left out keeps
-its current content. The response is `{"data":{"settings_yaml":"..."}}`.
-The `polling_headers` syntax `key=value&key=value` is the candidate. It is
-not yet confirmed to round-trip.
+- Response: `{"data":{"settings_yaml":"<the stored settings.yml>"}}`.
+- A minimal `settings.yml` is enough. The server fills every other key
+  with its default.
+- A body with only `settings.yml` keeps the existing `full.liquid`
+  [observed: `full.liquid` was unchanged after more than 15 settings-only imports].
 
-### From the API spec only (not yet confirmed by a call)
+### Read-back [observed]
 
-- `update-plugin-setting` takes `refresh_interval` from the enum
-  `1440, 720, 480, 360, 240, 120, 60, 30, 15, 10, 5` (minutes). The spec
-  says a value faster than the plan allows is raised to the nearest allowed
-  value. Whether the import path applies the same enum is open; planned
-  tests are 5, 15, 45, 1440 and 2000.
-- `get-plugin-setting-files` on another author's recipe omits
-  `polling_headers` and `polling_body`. For our own private plugin they are
-  expected to come back.
+`get-plugin-setting-files <id>` returns
+`{"data":{"files":{"settings.yml": ..., "full.liquid": ...}}}`. The
+stored `settings.yml` has these keys, in this order:
 
-## Step 3: `render-markup`
+```yaml
+---
+strategy: polling
+no_screen_padding: 'no'
+dark_mode: 'no'
+static_data:
+polling_verb: get
+framework_version:
+serverless_language:
+refresh_interval_floor:
+polling_url: https://example.com/trmnl/dummy.json
+polling_headers:
+polling_body:
+id: <id>
+oauth_enabled: 'false'
+oauth_pkce_enabled: 'no'
+name: scratch-import-test
+description:
+refresh_interval: 60
+```
 
-**Status: not run** (same 1Password block).
+- `polling_url` comes back as written.
+- **`polling_headers` always comes back empty, even when headers are
+  stored.** The read-back cannot confirm the headers.
+- `get-plugin-setting-details <id>` returns `settings` with sensitive
+  values removed (no URL, no headers), `form_fields`, `available_fields`,
+  `framework.version` (`3.4.4` here) and `sizes`. It does not show the
+  headers either.
 
-From the API spec (`POST /api/markup`, operation `renderMarkup`):
+### `polling_headers` syntax [observed]
 
-- Body: `{"markup": <string or array of strings>, "variables": <object>}`.
-  Both are required.
-- Response 200: `{"data": <string or array of strings>}`, which is the
-  rendered Liquid output as text (HTML), not a PNG and not a URL. An array
-  in gives an array out.
-- 401 or 403 has no body.
+The read-back cannot show headers, so the test pointed `polling_url` at
+`https://httpbin.org/headers` (it echoes the request headers), then ran
+`start-refresh <id>` and polled `get-refresh <id> <job_id>`. The
+`variables` field shows what TRMNL sent. Each syntax below reached the
+server:
 
-Planned call:
+| `polling_headers` in settings.yml | Headers sent |
+|---|---|
+| `x-poller-key=<v>&accept=application/json` | `X-Poller-Key`, `Accept: application/json` |
+| `\|-` block, lines `X-Poller-Key: <v>` and `X-Second: two` | both |
+| `\|-` block, lines `x-poller-key=<v>` and `x-second=two` | both |
+| `'X-Poller-Key: <v>'` (one quoted line) | `X-Poller-Key` |
+
+- Use the block form with one `Name: Value` per line. The form help text
+  documents it ("One per line as `Name: Value` (or `name=value`)").
+- In `variables`, TRMNL showed the echoed value as `[set]` for the line
+  forms. It showed the raw value for the `&` form. Do not rely on this
+  masking.
+
+### Import without headers [observed] (important for Task 7)
+
+Each case first stored headers, then imported a `settings.yml` with
+`polling_headers` in the given state, then refreshed against httpbin:
+
+| `polling_headers` in the import | Headers after |
+|---|---|
+| key absent | kept |
+| `polling_headers:` (null) | **cleared** |
+| `polling_headers: ""` | **cleared** |
+
+The read-back `settings.yml` has `polling_headers:` (null). **So a
+download-then-reimport of the file as-is wipes the secret header.** The CI
+push tool must either remove the `polling_headers` key from the file it
+imports, or write the real header value into it.
+
+### `refresh_interval` values
+
+Through `import-plugin-setting-files` [observed]: no value is rejected.
+The server coerces it.
+
+| Sent | Stored |
+|---|---|
+| 0 | 15 |
+| 5 | 15 |
+| 15 | 15 |
+| 45 | 60 |
+| 60 | 60 |
+| 1440 | 1440 |
+| 2000 | 1440 |
+
+Through `update-plugin-setting <id>` (body `{"refresh_interval": N}`):
+
+- 45 [observed]: rejected, exit code 4,
+  `{"error": "refresh_interval must be one of 1440, 720, 480, 360, 240, 120, 60, 30, 15, 10, 5"}`.
+- 15 [observed]: accepted, stored 15.
+- 5 [observed]: accepted, stored 15. The spec says a value faster than
+  the plan allows is raised to the nearest allowed value; this account's
+  floor is 15.
+
+Use 15, 30, 60 or 1440 to get exactly what you send on this plan.
+
+### Delete [observed]
 
 ```sh
-trmnl render-markup --rsh-timeout 30s < render.json
+trmnl delete-plugin-setting <id> --rsh-timeout 30s
 ```
 
-with `render.json`:
+Failed, exit code 4:
+`{"error": "This API key lacks the delete capability. Create a key with it under Account, API keys."}`.
+The account key has read and content capabilities only. The scratch
+plugin still exists (see Open caveats).
 
-```json
-{"markup": "<div class=\"title\">{{ title }}</div><div>{{ trips[0].city }} in {{ trips[0].days }} days</div>",
- "variables": {"title": "Countdown", "trips": [{"city": "Springfield", "days": 12}]}}
+## Step 3: `render-markup` [observed]
+
+```sh
+trmnl render-markup -o json --rsh-timeout 30s < render.json
+trmnl render-markup 'markup: "Hello, {{ name }}!", variables.name: World'
 ```
+
+Body: `{"markup": <string or array of strings>, "variables": <object>}`.
+It returns rendered text (HTML), not a PNG and not a URL. Each call took
+0.09 s to 0.14 s.
+
+| Input | `data` returned |
+|---|---|
+| `"<div class=\"title\">{{ title }}</div><div>{{ trips[0].city }} in {{ trips[0].days }} days</div>"` with `{"title":"Countdown","trips":[{"city":"Springfield","days":12}]}` | `"<div class=\"title\">Countdown</div><div>Springfield in 12 days</div>"` |
+| array `["<div>{{ title }}</div>", "<span>{{ title }}</span>"]` | array `["<div>Two</div>", "<span>Two</span>"]` |
+| `{{ title \| upcase }} {{ missing }} {% for t in trips %}[...]{% endfor %}` | `"COUNTDOWN  [Springfield:12][Shelbyville:40]"` |
+| `{% if x %}unclosed` | `"Liquid error: Liquid syntax error (line 1): 'if' tag was never closed"` |
+| `{{ 'now' \| date: '%Y-%m-%d' }} {{ trmnl.user.name }}` with `{}` | `"2026-11-02 "` |
+
+- **A Liquid syntax error still returns HTTP 200 and exit code 0.** The
+  error is in the text: `data` starts with `Liquid error:`. A CI check must
+  test the text, not the exit code.
+- An undefined variable renders as an empty string, with no error.
+- Filters and loops work. No `trmnl.*` context is present: the plugin's
+  merge variables are not added.
+- The output is the bare template. It has no framework CSS or layout
+  wrapper, so it is not a picture of the screen.
 
 ## Open caveats
 
-- Steps 2 and 3 need a rerun with 1Password unlocked.
-- The scratch plugin `scratch-import-test` still exists on the account and
-  needs `trmnl delete-plugin-setting <id>`. It is on no playlist.
+- **Scratch plugin `scratch-import-test` is not deleted**, because the key
+  lacks `delete`. It is on no playlist. It was left inert:
+  `polling_url: https://example.com/trmnl/dummy.json`, no headers,
+  `refresh_interval: 1440`. Delete it from the web UI or with a key that
+  has `delete`.
 - No flight event was in the feed, so the flight shape is unobserved.
+- Whether `'now' | date` uses UTC or the account time zone is unknown.
+  The test ran at 00:xx in New York, which is the same date in UTC.
