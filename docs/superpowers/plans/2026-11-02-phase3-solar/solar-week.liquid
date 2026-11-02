@@ -1,0 +1,67 @@
+<script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="https://code.highcharts.com/modules/pattern-fill.js"></script>
+<style>
+  .sw-table { width: 100%; }
+  .sw-table th { text-align: right; white-space: nowrap; }
+  .sw-table td { text-align: right; white-space: nowrap; }
+  .sw-table th:first-child, .sw-table td:first-child { text-align: left; }
+  .sw-table tr.sw-today td .label { font-weight: 700; }
+  .sw-table .sw-sep { border-left: 2px solid #000; }
+</style>
+<div class="view view--full">
+  <div class="layout layout--col gap--none" style="justify-content: flex-start;">
+    <div id="week-chart" style="width: 100%; height: 150px; margin-top: 6px;"></div>
+    <table class="table table--small sw-table">
+      <thead>
+        <tr>
+          <th><span class="label" style="font-weight: 700;">Day</span></th><th><span class="label" style="font-weight: 700;">Solar</span></th><th><span class="label" style="font-weight: 700;">Home</span></th><th><span class="label" style="font-weight: 700;">Grid in</span></th><th><span class="label" style="font-weight: 700;">Grid out</span></th>
+          <th class="sw-sep"><span class="label" style="font-weight: 700;">Self</span></th><th><span class="label" style="font-weight: 700;">Net 0</span></th><th><span class="label" style="font-weight: 700;">Peak</span></th><th><span class="label" style="font-weight: 700;">Full</span></th><th><span class="label" style="font-weight: 700;">Drain</span></th><th><span class="label" style="font-weight: 700;">Reserve</span></th><th class="sw-sep"><span class="label" style="font-weight: 700;">Car</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in days %}
+        <tr{% if forloop.last %} class="sw-today"{% endif %}>
+          <td><span class="label">{{ d.label | escape }}</span></td>
+          <td><span class="label">{% if d.solar_kwh == nil %}&mdash;{% else %}{{ d.solar_kwh }}{% endif %}</span></td>
+          <td><span class="label">{% if d.home_kwh == nil %}&mdash;{% else %}{{ d.home_kwh }}{% endif %}</span></td>
+          <td><span class="label">{% if d.grid_in_kwh == nil %}&mdash;{% else %}{{ d.grid_in_kwh }}{% endif %}</span></td>
+          <td><span class="label">{% if d.grid_out_kwh == nil %}&mdash;{% else %}{{ d.grid_out_kwh }}{% endif %}</span></td>
+          <td class="sw-sep"><span class="label">{% if d.self_powered_pct == nil %}&mdash;{% else %}{{ d.self_powered_pct }}%{% endif %}</span></td>
+          <td><span class="label">{% if d.net_zero_h == nil %}&mdash;{% else %}{{ d.net_zero_h }} h{% endif %}</span></td>
+          <td><span class="label">{% if d.peak_pct == nil %}&mdash;{% else %}{{ d.peak_pct }}%{% endif %}</span></td>
+          <td><span class="label">{% if d.peak_time == nil %}&mdash;{% else %}{{ d.peak_time }}{% endif %}</span></td>
+          <td><span class="label">{% if d.drain_time == nil %}&mdash;{% else %}{{ d.drain_time }}{% endif %}</span></td>
+          <td><span class="label">{% if d.reserve_time == nil %}&mdash;{% else %}{{ d.reserve_time }}{% endif %}</span></td>
+          <td class="sw-sep"><span class="label">{% if d.car_kwh == nil %}&mdash;{% else %}{{ d.car_kwh }}{% endif %}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="title_bar">
+    <span class="label" style="font-weight: 700;">Solar Week</span>
+    <span class="instance">{{ week_solar_kwh }} kWh solar &middot; kWh unless marked &middot; updated {{ updated }}</span>
+  </div>
+</div>
+<script type="text/javascript">
+  var categories = {{ str_categories }};
+  Highcharts.chart("week-chart", {
+    chart: { type: "column", animation: false, spacing: [10, 4, 0, 4] },
+    title: { text: null },
+    xAxis: { categories: categories, labels: { style: { fontSize: "12px", color: "#000" } } },
+    yAxis: { title: { text: null }, labels: { style: { fontSize: "11px", color: "#000" } },
+             gridLineDashStyle: "ShortDot", gridLineColor: "#000", tickAmount: 4 },
+    legend: { align: "right", verticalAlign: "top", floating: true, layout: "horizontal",
+              itemStyle: { color: "#000", fontSize: "12px" }, padding: 0, margin: 0 },
+    plotOptions: { column: { grouping: true, pointPadding: 0.08, groupPadding: 0.12, borderWidth: 1, borderColor: "#000" },
+                   series: { animation: false } },
+    series: [
+      { name: "Grid net", data: {{ str_grid }},
+        color: { pattern: { image: "https://usetrmnl.com/images/grayscale/gray-5.png", width: 12, height: 12 } } },
+      { name: "Home", data: {{ str_load }},
+        color: { pattern: { image: "https://usetrmnl.com/images/grayscale/gray-4.png", width: 12, height: 12 } } },
+      { name: "Solar", data: {{ str_solar }}, color: "#000000" }
+    ],
+    credits: { enabled: false }, tooltip: { enabled: false }
+  });
+</script>

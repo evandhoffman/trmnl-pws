@@ -170,6 +170,14 @@ grid, battery) and the 7-day summary. The new metrics go on the 7-day
 summary, which becomes a per-day table or a chart plus a table. The layout is
 left to the builder, then to Evan's tweaks.
 
+*Update, 2026-11-02:* Evan approved redesigned versions of both screens
+from mockups: a rolling 24-hour power chart with a battery strip, and the
+8-day bars with a per-day table. The phase 3 plan
+(`docs/superpowers/plans/2026-11-02-trmnl-poller-phase3-solar.md`, D5 and
+D10) holds the details. Evan named the battery data that matter: the time
+it reached its max, the time the house started drawing from it, and the
+time it reached the reserve.
+
 **Metrics Evan asked for:**
 
 | Metric | Source sensor | Notes |
@@ -185,8 +193,8 @@ after he sees the screen):
 - **Time the battery reached its reserve** each day, or "not reached".
   Evan: the Powerwall keeps a reserve of 30–40%, so the low % itself
   carries no news, but the time it got there might. Read the reserve from
-  `bellmore_backup_reserve`; it can change, so compare each reading to the
-  reserve in force at that moment.
+  `bellmore_backup_reserve`. *Evan, 2026-11-02:* use the day's highest
+  reserve value as that day's reserve ("I rarely change it").
 - Self-powered %: the share of the day's home load (car included) that solar
   and the battery covered.
 - Grid import and export kWh per day (`bellmore_grid_imported`,
