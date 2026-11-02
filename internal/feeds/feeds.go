@@ -192,13 +192,15 @@ func (f *Feed) fetch(ctx context.Context) ([]byte, error) {
 	return body, nil
 }
 
-// checkRedirect follows a redirect only within the host of the first request.
-// A redirect to another host could carry the token to a third party.
+// checkRedirect follows a redirect only within the host and scheme of the
+// first request. A redirect to another host could carry the token to a third
+// party. A redirect from https to http on the same host would send it in
+// cleartext.
 func checkRedirect(req *http.Request, via []*http.Request) error {
 	if len(via) >= 10 {
 		return errTooManyRedirect
 	}
-	if req.URL.Host != via[0].URL.Host {
+	if req.URL.Host != via[0].URL.Host || req.URL.Scheme != via[0].URL.Scheme {
 		return errRedirectRefused
 	}
 	return nil

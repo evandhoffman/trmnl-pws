@@ -3,6 +3,7 @@ package feeds
 import (
 	"bytes"
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -378,6 +379,51 @@ func TestRedirectErrorsNeverContainToken(t *testing.T) {
 		}
 		if other.hits.Load() != 0 {
 			t.Error("the client followed a redirect to another host")
+		}
+	})
+
+	t.Run("scheme change on the same host", func(t *testing.T) {
+		// The test server speaks http. A redirect to https on the same
+		// host:port changes only the scheme. The reverse (https to http)
+		// would send the token in cleartext. Both are refused.
+		buf := captureLogs(t)
+		var hits atomic.Int32
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			hits.Add(1)
+			w.Header().Set("Location", "https://"+r.Host+"/"+token)
+			w.WriteHeader(http.StatusFound)
+		}))
+		defer srv.Close()
+		f := New("trips", srv.URL+"/feed/"+token, time.Hour, newClock().Now)
+
+		_, err := f.Events(context.Background(), ny)
+		if err == nil {
+			t.Fatal("want an error")
+		}
+		assertNoSecret(t, err.Error(), buf.String(), token, srv.URL)
+		if err.Error() != "feed trips: redirect refused" {
+			t.Errorf("error %q is not the generic redirect message", err)
+		}
+		if hits.Load() != 1 {
+			t.Errorf("server hits = %d, want 1: the client followed the redirect", hits.Load())
+		}
+	})
+
+	t.Run("https to http downgrade is refused", func(t *testing.T) {
+		first, err := http.NewRequest(http.MethodGet, "https://feeds.example.invalid/x", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		next, err := http.NewRequest(http.MethodGet, "http://feeds.example.invalid/x", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := checkRedirect(next, []*http.Request{first}); !errors.Is(got, errRedirectRefused) {
+			t.Errorf("checkRedirect = %v, want errRedirectRefused", got)
+		}
+		same, _ := http.NewRequest(http.MethodGet, "https://feeds.example.invalid/y", nil)
+		if got := checkRedirect(same, []*http.Request{first}); got != nil {
+			t.Errorf("same scheme and host refused: %v", got)
 		}
 	})
 
