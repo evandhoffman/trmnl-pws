@@ -68,7 +68,9 @@ func Hours(spans []Span, keep func(v float64) bool) float64 {
 func KWh(spans []Span) float64 {
 	var e float64
 	for _, s := range spans {
-		e += s.V * s.dur().Hours()
+		// The conversion stops a fused multiply-add on arm64, so every CPU
+		// gets the same bits and the fixtures match on amd64 CI.
+		e += float64(s.V * s.dur().Hours())
 	}
 	return e
 }
@@ -79,7 +81,7 @@ func Mean(spans []Span) (float64, bool) {
 	var sum, hours float64
 	for _, s := range spans {
 		h := s.dur().Hours()
-		sum += s.V * h
+		sum += float64(s.V * h) // no fused multiply-add; see KWh
 		hours += h
 	}
 	if hours == 0 {
