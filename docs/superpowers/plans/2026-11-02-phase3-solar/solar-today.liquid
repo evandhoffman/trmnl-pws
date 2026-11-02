@@ -1,0 +1,112 @@
+<script src="https://code.highcharts.com/highcharts.js"></script>
+<script src="https://code.highcharts.com/modules/pattern-fill.js"></script>
+<style>
+  .st-stats { display: flex; justify-content: space-between; align-items: flex-end; padding: 2px 4px 0; }
+  .st-stat { display: flex; flex-direction: column; }
+  .st-stat .value { line-height: 1; }
+  .st-stat .label { margin-top: 2px; }
+  .st-unit { font-size: 0.55em; margin-left: 2px; }
+</style>
+<div class="view view--full">
+  <div class="layout layout--col gap--none" style="justify-content: flex-start;">
+    <div class="st-stats" style="width: 100%;">
+      <div class="st-stat"><span class="value value--small">{{ generated_kwh | default: "&mdash;" }}<span class="st-unit">kWh</span></span><span class="label">Generated today</span></div>
+      <div class="st-stat"><span class="value value--small">{{ peak_kw | default: "&mdash;" }}<span class="st-unit">kW</span></span><span class="label">Peak{% if peak_time %} at {{ peak_time }}{% endif %}</span></div>
+      <div class="st-stat"><span class="value value--small">{{ now_solar_kw | default: "&mdash;" }}<span class="st-unit">kW</span></span><span class="label">Solar now</span></div>
+      <div class="st-stat"><span class="value value--small">{{ now_home_kw | default: "&mdash;" }}<span class="st-unit">kW</span></span><span class="label">Home now</span></div>
+      <div class="st-stat"><span class="value value--small">{{ battery_pct | default: "&mdash;" }}<span class="st-unit">%</span></span><span class="label">Battery</span></div>
+    </div>
+    <div id="power" style="width: 100%; height: 248px;"></div>
+    <div id="battery" style="width: 100%; height: 100px;"></div>
+  </div>
+  <div class="title_bar">
+    <span class="title">Solar Today</span>
+    <span class="instance">{{ date_label }} &middot; updated {{ updated }}</span>
+  </div>
+</div>
+<script type="text/javascript">
+(function () {
+  var solar = {{ str_solar }}, home = {{ str_home }}, grid = {{ str_grid }}, batt = {{ str_battery }};
+  var sun = {{ str_sun }}, bev = {{ str_batt_events | default: "[]" }}, startMin = {{ start_min }}, midMin = {{ midnight_min }}, midLabel = "{{ midnight_label }}", reserve = {{ reserve_pct | default: "null" }};
+  var LEFT = 44, RIGHT = 62;               // shared margins so both charts line up
+  var ink = "#000", mid = "#555", hair = "#bbb";
+  var font = { fontFamily: '"NicoClean", "Inter Variable", Inter, sans-serif', color: ink };
+
+  function hourLabel(m) {
+    var h = Math.round((m + startMin) / 60) % 24, ap = h < 12 ? "a" : "p", h12 = h % 12 === 0 ? 12 : h % 12;
+    return h12 + ap;
+  }
+  function sunLines(withLabels) {
+    var lines = [];
+    sun.forEach(function (s) {
+      lines.push({ value: s.min, color: mid, width: 1, dashStyle: "ShortDot", zIndex: 3,
+        label: withLabels ? { text: (s.label === "Rise" ? "rise " : s.label === "Set" ? "set " : "noon ") + s.time,
+          rotation: 0, align: "center", x: 0, y: -6, verticalAlign: "bottom",
+          style: { fontSize: "11px", color: ink } } : undefined });
+    });
+    lines.push({ value: midMin, color: ink, width: 1, zIndex: 4,
+      label: withLabels ? { text: midLabel, rotation: 0, align: "left", x: 3, y: 12, verticalAlign: "top", style: { fontSize: "11px", fontWeight: "700", color: ink } } : undefined });
+    return lines;
+  }
+  function endLabel(name, data, unit) {
+    if (!data.length) return null;
+    var last = data[data.length - 1];
+    return { x: last[0], y: last[1], dataLabels: { enabled: true, align: "left", x: 6, y: 0, verticalAlign: "middle",
+      crop: false, overflow: "allow", format: name, style: { fontSize: "12px", fontWeight: "700", color: ink, textOutline: "3px #fff" } } };
+  }
+  function withEnd(name, data) {
+    var d = data.slice();
+    if (d.length) { d[d.length - 1] = endLabel(name, data); }
+    return d;
+  }
+  function battLines() {
+    var lines = sunLines(false);
+    bev.forEach(function (e, i) {
+      lines.push({ value: e.min, color: ink, width: 2, zIndex: 5,
+        label: { text: e.label + " " + e.time, rotation: 0, align: e.min > 1240 ? "right" : "left",
+          x: e.min > 1240 ? -4 : 4, y: 11 + (i % 2) * 13, verticalAlign: "top",
+          style: { fontSize: "11px", fontWeight: "700", color: ink, textOutline: "3px #fff" } } });
+    });
+    return lines;
+  }
+  var ticks = []; for (var m = (180 - startMin % 180) % 180; m <= 1440; m += 180) { ticks.push(m); }
+  var xAxis = { min: 0, max: 1440, tickPositions: ticks,
+    lineColor: ink, lineWidth: 1, tickLength: 4, tickColor: ink, gridLineWidth: 0 };
+
+  Highcharts.setOptions({ chart: { animation: false, style: font }, credits: { enabled: false },
+    tooltip: { enabled: false }, title: { text: null }, legend: { enabled: false },
+    plotOptions: { series: { animation: false, enableMouseTracking: false, marker: { enabled: false },
+      states: { hover: { enabled: false } } } } });
+
+  Highcharts.chart("power", {
+    chart: { marginLeft: LEFT, marginRight: RIGHT, spacingTop: 2, spacingBottom: 4 },
+    legend: { enabled: true, floating: false, align: "left", verticalAlign: "top", layout: "horizontal", x: 36, y: 0, margin: 4, padding: 2,
+      itemStyle: { fontSize: "12px", fontWeight: "400", color: ink }, symbolWidth: 26, itemDistance: 14, backgroundColor: "rgba(255,255,255,0.9)" },
+    xAxis: Highcharts.merge(xAxis, { labels: { enabled: false }, plotLines: sunLines(true) }),
+    yAxis: { title: { text: "kW", rotation: 0, align: "high", offset: 10, y: -6, x: -8, style: { fontSize: "11px", color: ink } },
+      gridLineColor: hair, gridLineWidth: 1, tickInterval: 2, endOnTick: true,
+      labels: { style: { fontSize: "11px", color: ink }, x: -6 },
+      plotLines: [{ value: 0, color: ink, width: 1, zIndex: 2 }] },
+    series: [
+      { type: "area", name: "Solar", data: solar, lineColor: ink, lineWidth: 2, threshold: 0, zIndex: 1,
+        fillColor: { pattern: { image: "https://usetrmnl.com/images/grayscale/gray-6.png", width: 12, height: 12 } } },
+      { type: "line", name: "Home", data: home, color: ink, lineWidth: 2, dashStyle: "Dash", zIndex: 3 },
+      { type: "line", name: "Grid (\u2212 = export)", data: grid, color: ink, lineWidth: 3, dashStyle: "Dot", zIndex: 2 }
+    ]
+  });
+
+  Highcharts.chart("battery", {
+    chart: { marginLeft: LEFT, marginRight: RIGHT, spacingTop: 6, spacingBottom: 2 },
+    xAxis: Highcharts.merge(xAxis, { labels: { formatter: function () { return hourLabel(this.value); },
+      style: { fontSize: "11px", color: ink }, y: 14 }, plotLines: battLines() }),
+    yAxis: { min: 0, max: 100, tickPositions: [0, 50, 100], gridLineColor: hair, gridLineWidth: 1, title: { text: null },
+      labels: { format: "{value}%", style: { fontSize: "11px", color: ink }, x: -6 },
+      plotLines: reserve === null ? [] : [{ value: reserve, color: ink, width: 1, dashStyle: "Dash", zIndex: 3,
+        label: { text: "reserve", align: "right", x: 52, y: 4, style: { fontSize: "11px", color: ink } } }] },
+    series: [
+      { type: "area", name: "Battery", data: batt, lineColor: ink, lineWidth: 2, threshold: 0,
+        fillColor: { pattern: { image: "https://usetrmnl.com/images/grayscale/gray-7.png", width: 12, height: 12 } } }
+    ]
+  });
+})();
+</script>
