@@ -1,0 +1,8 @@
+---
+strategy: polling
+polling_url: https://trmnl-poller.evanhoffman.com/v1/solar/today
+polling_verb: get
+polling_headers: |-
+  X-Poller-Key: __POLLER_KEY__
+refresh_interval: 15
+name: Solar Today
