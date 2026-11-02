@@ -100,17 +100,18 @@ func buildDeps(cfg config.Config, ver string) (server.Deps, error) {
 		return server.Deps{}, fmt.Errorf("timezone: %w", err)
 	}
 	d := server.Deps{
-		Key:         cfg.Key,
-		Loc:         loc,
-		Now:         time.Now,
-		SchoolLabel: cfg.SchoolLabel,
-		SchoolRules: cfg.SchoolRules,
-		HolidayKeys: slices.Clone(cfg.HolidayKeys),
-		Version:     ver,
-		Entities:    cfg.Entities,
-		NetZeroKW:   cfg.NetZeroKW,
-		Latitude:    cfg.Latitude,
-		Longitude:   cfg.Longitude,
+		Key:              cfg.Key,
+		Loc:              loc,
+		Now:              time.Now,
+		SchoolLabel:      cfg.SchoolLabel,
+		SchoolRules:      cfg.SchoolRules,
+		HolidayKeys:      slices.Clone(cfg.HolidayKeys),
+		Version:          ver,
+		Entities:         cfg.Entities,
+		NetZeroKW:        cfg.NetZeroKW,
+		TodayWindowHours: cfg.TodayWindowHours,
+		Latitude:         cfg.Latitude,
+		Longitude:        cfg.Longitude,
 	}
 	if cfg.TripURL != "" {
 		d.Trips = feeds.New("tripit", cfg.TripURL, feedTTL, time.Now)

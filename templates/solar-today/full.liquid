@@ -1,27 +1,28 @@
 <script src="https://code.highcharts.com/highcharts.js"></script>
 <script src="https://code.highcharts.com/modules/pattern-fill.js"></script>
 <style>
-  .st-stats { display: flex; justify-content: space-between; align-items: flex-end; padding: 2px 4px 0; }
+  .st-stats { display: flex; justify-content: space-between; align-items: flex-start; padding: 2px 4px 0; }
   .st-stat { display: flex; flex-direction: column; }
   .st-stat .value { line-height: 1; }
   .st-stat .label { margin-top: 2px; }
+  .st-prev { margin-top: 1px; }
   .st-unit { font-size: 0.55em; margin-left: 2px; }
 </style>
 <div class="view view--full">
   <div class="layout layout--col gap--none" style="justify-content: flex-start;">
     <div class="st-stats" style="width: 100%;">
-      <div class="st-stat"><span class="value value--small">{{ generated_kwh | default: "&mdash;" }}<span class="st-unit">kWh</span></span><span class="label">Generated today</span></div>
-      <div class="st-stat"><span class="value value--small">{{ peak_kw | default: "&mdash;" }}<span class="st-unit">kW</span></span><span class="label">Peak{% if peak_time %} at {{ peak_time }}{% endif %}</span></div>
+      <div class="st-stat"><span class="value value--small">{{ generated_kwh | default: "&mdash;" }}<span class="st-unit">kWh</span></span><span class="label">Generated today</span><span class="label label--small st-prev">yesterday {{ yesterday_kwh | default: "&mdash;" }} kWh</span></div>
+      <div class="st-stat"><span class="value value--small">{{ peak_kw | default: "&mdash;" }}<span class="st-unit">kW</span></span><span class="label">Peak{% if peak_time %} at {{ peak_time }}{% endif %}</span><span class="label label--small st-prev">yesterday {{ yesterday_peak_kw | default: "&mdash;" }} kW</span></div>
       <div class="st-stat"><span class="value value--small">{{ now_solar_kw | default: "&mdash;" }}<span class="st-unit">kW</span></span><span class="label">Solar now</span></div>
       <div class="st-stat"><span class="value value--small">{{ now_home_kw | default: "&mdash;" }}<span class="st-unit">kW</span></span><span class="label">Home now</span></div>
       <div class="st-stat"><span class="value value--small">{{ battery_pct | default: "&mdash;" }}<span class="st-unit">%</span></span><span class="label">Battery</span></div>
     </div>
-    <div id="power" style="width: 100%; height: 248px;"></div>
+    <div id="power" style="width: 100%; height: 234px;"></div>
     <div id="battery" style="width: 100%; height: 100px;"></div>
   </div>
   <div class="title_bar">
     <span class="title">Solar Today</span>
-    <span class="instance">{{ date_label }} &middot; updated {{ updated }}</span>
+    <span class="instance">{{ date_label }} &middot; {% if sun_text %}{{ sun_text }} &middot; {% endif %}updated {{ updated }}</span>
   </div>
 </div>
 <script type="text/javascript">
@@ -38,13 +39,13 @@
   function sunLines(withLabels) {
     var lines = [];
     sun.forEach(function (s) {
-      lines.push({ value: s.min, color: mid, width: 1, dashStyle: "ShortDot", zIndex: 3,
+      lines.push({ value: s.min, color: ink, width: withLabels ? 2 : 1, zIndex: 3,
         label: withLabels ? { text: (s.label === "Rise" ? "rise " : s.label === "Set" ? "set " : "noon ") + s.time,
-          rotation: 0, align: "center", x: 0, y: -6, verticalAlign: "bottom",
-          style: { fontSize: "11px", color: ink } } : undefined });
+          rotation: 0, align: "center", x: 0, y: 15, verticalAlign: "bottom",
+          style: { fontSize: "12px", fontWeight: "700", color: ink, textOutline: "3px #fff" } } : undefined });
     });
-    lines.push({ value: midMin, color: ink, width: 1, zIndex: 4,
-      label: withLabels ? { text: midLabel, rotation: 0, align: "left", x: 3, y: 12, verticalAlign: "top", style: { fontSize: "11px", fontWeight: "700", color: ink } } : undefined });
+    lines.push({ value: midMin, color: ink, width: 2, dashStyle: "ShortDash", zIndex: 4,
+      label: withLabels ? { text: midLabel, rotation: 0, align: "left", x: 3, y: 12, verticalAlign: "top", style: { fontSize: "11px", fontWeight: "700", color: ink, textOutline: "3px #fff" } } : undefined });
     return lines;
   }
   function endLabel(name, data, unit) {
@@ -62,13 +63,13 @@
     var lines = sunLines(false);
     bev.forEach(function (e, i) {
       lines.push({ value: e.min, color: ink, width: 2, zIndex: 5,
-        label: { text: e.label + " " + e.time, rotation: 0, align: e.min > 1240 ? "right" : "left",
-          x: e.min > 1240 ? -4 : 4, y: 11 + (i % 2) * 13, verticalAlign: "top",
+        label: { text: e.label + " " + e.time, rotation: 0, align: e.min > {{ window_min }} - 200 ? "right" : "left",
+          x: e.min > {{ window_min }} - 200 ? -4 : 4, y: 11 + (i % 2) * 13, verticalAlign: "top",
           style: { fontSize: "11px", fontWeight: "700", color: ink, textOutline: "3px #fff" } } });
     });
     return lines;
   }
-  var xAxis = { min: 0, max: 1440, tickPositions: tickPos,
+  var xAxis = { min: 0, max: {{ window_min }}, tickPositions: tickPos,
     lineColor: ink, lineWidth: 1, tickLength: 4, tickColor: ink, gridLineWidth: 0 };
 
   Highcharts.setOptions({ chart: { animation: false, style: font }, credits: { enabled: false },
@@ -77,7 +78,7 @@
       states: { hover: { enabled: false } } } } });
 
   Highcharts.chart("power", {
-    chart: { marginLeft: LEFT, marginRight: RIGHT, spacingTop: 2, spacingBottom: 4 },
+    chart: { marginLeft: LEFT, marginRight: RIGHT, spacingTop: 2, spacingBottom: 4, marginBottom: 18 },
     legend: { enabled: true, floating: false, align: "left", verticalAlign: "top", layout: "horizontal", x: 36, y: 0, margin: 4, padding: 2,
       itemStyle: { fontSize: "12px", fontWeight: "400", color: ink }, symbolWidth: 26, itemDistance: 14, backgroundColor: "rgba(255,255,255,0.9)" },
     xAxis: Highcharts.merge(xAxis, { labels: { enabled: false }, plotLines: sunLines(true) }),

@@ -178,6 +178,16 @@ D10) holds the details. Evan named the battery data that matter: the time
 it reached its max, the time the house started drawing from it, and the
 time it reached the reserve.
 
+*Update, 2026-11-02 (later):* Evan approved a shorter Solar Today chart
+from mockups. It shows a rolling 12-hour window that ends now. The length
+is the config key `solar.today_window_hours`, from 1 to 24. The chart uses
+10-minute buckets, and ticks fall every 2 hours (every 3 hours for a window
+over 12 hours). The header shows today and yesterday: generated kWh and
+peak kW, each with yesterday's value under it. The peak uses 5-minute
+buckets over the whole day, so a window that starts after midnight does not
+change it. The title bar shows today's sunrise, solar noon, and sunset
+times. Sun lines are solid, with the labels under the power chart.
+
 **Metrics Evan asked for:**
 
 | Metric | Source sensor | Notes |

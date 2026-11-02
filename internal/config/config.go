@@ -46,12 +46,13 @@ type Config struct {
 	SchoolRules countdown.SchoolRules
 	HolidayKeys []string
 
-	InfluxOrg    string
-	InfluxBucket string
-	Entities     solar.Entities
-	NetZeroKW    float64
-	Latitude     *float64
-	Longitude    *float64
+	InfluxOrg        string
+	InfluxBucket     string
+	Entities         solar.Entities
+	NetZeroKW        float64
+	TodayWindowHours int // Solar Today chart length, 1 to 24
+	Latitude         *float64
+	Longitude        *float64
 
 	Key         string
 	TripURL     string
@@ -76,8 +77,9 @@ type fileConfig struct {
 		Bucket string `yaml:"bucket"`
 	} `yaml:"influx"`
 	Solar struct {
-		Entities  entitiesFile `yaml:"entities"`
-		NetZeroKW float64      `yaml:"net_zero_kw"`
+		Entities         entitiesFile `yaml:"entities"`
+		NetZeroKW        float64      `yaml:"net_zero_kw"`
+		TodayWindowHours int          `yaml:"today_window_hours"`
 	} `yaml:"solar"`
 	Latitude  *float64 `yaml:"latitude"`
 	Longitude *float64 `yaml:"longitude"`
@@ -111,6 +113,7 @@ func defaults() fileConfig {
 	f.Influx.Bucket = "home_assistant/autogen"
 	f.Solar.Entities = entitiesFile(solar.DefaultEntities)
 	f.Solar.NetZeroKW = 0.05
+	f.Solar.TodayWindowHours = 12
 	return f
 }
 
@@ -122,22 +125,23 @@ func Load(path string, getenv func(string) string) (Config, error) {
 		return Config{}, err
 	}
 	cfg := Config{
-		Listen:       f.Listen,
-		Timezone:     f.Timezone,
-		SchoolLabel:  f.SchoolLabel,
-		SchoolRules:  countdown.SchoolRules{Include: f.SchoolRules.Include, Exclude: f.SchoolRules.Exclude},
-		HolidayKeys:  f.Holidays,
-		InfluxOrg:    f.Influx.Org,
-		InfluxBucket: f.Influx.Bucket,
-		Entities:     solar.Entities(f.Solar.Entities),
-		NetZeroKW:    f.Solar.NetZeroKW,
-		Latitude:     f.Latitude,
-		Longitude:    f.Longitude,
-		Key:          getenv(envKey),
-		TripURL:      getenv(envTripURL),
-		SchoolURL:    getenv(envSchoolURL),
-		InfluxURL:    getenv(envInfluxURL),
-		InfluxToken:  getenv(envInfluxTok),
+		Listen:           f.Listen,
+		Timezone:         f.Timezone,
+		SchoolLabel:      f.SchoolLabel,
+		SchoolRules:      countdown.SchoolRules{Include: f.SchoolRules.Include, Exclude: f.SchoolRules.Exclude},
+		HolidayKeys:      f.Holidays,
+		InfluxOrg:        f.Influx.Org,
+		InfluxBucket:     f.Influx.Bucket,
+		Entities:         solar.Entities(f.Solar.Entities),
+		NetZeroKW:        f.Solar.NetZeroKW,
+		TodayWindowHours: f.Solar.TodayWindowHours,
+		Latitude:         f.Latitude,
+		Longitude:        f.Longitude,
+		Key:              getenv(envKey),
+		TripURL:          getenv(envTripURL),
+		SchoolURL:        getenv(envSchoolURL),
+		InfluxURL:        getenv(envInfluxURL),
+		InfluxToken:      getenv(envInfluxTok),
 	}
 	if err := cfg.validate(); err != nil {
 		return Config{}, err
@@ -239,6 +243,9 @@ func (c Config) validateSolar() error {
 	// NaN fails this test too.
 	if !(c.NetZeroKW > 0) {
 		return errors.New("solar.net_zero_kw must be greater than 0")
+	}
+	if c.TodayWindowHours < 1 || c.TodayWindowHours > 24 {
+		return errors.New("solar.today_window_hours must be from 1 to 24")
 	}
 	if (c.Latitude == nil) != (c.Longitude == nil) {
 		return errors.New("latitude and longitude: set both or neither")

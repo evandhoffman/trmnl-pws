@@ -94,7 +94,7 @@ func failureReason(err error) string {
 
 func (h *handler) solarToday(w http.ResponseWriter, r *http.Request) {
 	h.serveSolar(w, r, func(now time.Time, pts map[string][]series.Point) any {
-		return solar.BuildToday(now, h.d.Loc, pts, h.d.Entities, h.sunEvents(now))
+		return solar.BuildToday(now, h.d.Loc, time.Duration(h.d.TodayWindowHours)*time.Hour, pts, h.d.Entities, h.sunEvents(now))
 	})
 }
 

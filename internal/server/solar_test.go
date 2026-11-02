@@ -72,6 +72,7 @@ func solarHandler(t *testing.T, r *fakeReader, clk *clock, mod func(*Deps)) http
 	d.Influx = r
 	d.Entities = solar.DefaultEntities
 	d.NetZeroKW = 0.05
+	d.TodayWindowHours = 12
 	if mod != nil {
 		mod(&d)
 	}
@@ -113,7 +114,7 @@ func TestSolarTodayShape(t *testing.T) {
 		t.Fatal("chart strings are empty")
 	}
 	// The handler builds with the same builder: the body must match it.
-	want := solar.BuildToday(fixedNow(), ny, synthPoints(), solar.DefaultEntities, nil)
+	want := solar.BuildToday(fixedNow(), ny, 12*time.Hour, synthPoints(), solar.DefaultEntities, nil)
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("body differs from BuildToday:\n got %+v\nwant %+v", got, want)
 	}
@@ -234,7 +235,7 @@ func TestSolarCachedRequestUsesCurrentNow(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &today); err != nil {
 		t.Fatal(err)
 	}
-	want := solar.BuildToday(fixedNow().Add(50*time.Second), ny, synthPoints(), solar.DefaultEntities, nil)
+	want := solar.BuildToday(fixedNow().Add(50*time.Second), ny, 12*time.Hour, synthPoints(), solar.DefaultEntities, nil)
 	if !reflect.DeepEqual(today, want) {
 		t.Fatal("cached body is not built with the current time")
 	}
@@ -250,7 +251,7 @@ func TestSolarStale(t *testing.T) {
 	}}
 	clk := newClock(fixedNow())
 	d := testDeps(clk.Now, nil, nil)
-	d.Influx, d.Entities, d.NetZeroKW = r, solar.DefaultEntities, 0.05
+	d.Influx, d.Entities, d.NetZeroKW, d.TodayWindowHours = r, solar.DefaultEntities, 0.05, 12
 	h := New(d)
 
 	first := do(h, http.MethodGet, "/v1/solar/week", lan, keyed())
@@ -315,7 +316,7 @@ func TestSolarDown(t *testing.T) {
 	}}
 	clk := newClock(fixedNow())
 	d := testDeps(clk.Now, nil, nil)
-	d.Influx, d.Entities, d.NetZeroKW = r, solar.DefaultEntities, 0.05
+	d.Influx, d.Entities, d.NetZeroKW, d.TodayWindowHours = r, solar.DefaultEntities, 0.05, 12
 	h := New(d)
 	for _, path := range []string{"/v1/solar/today", "/v1/solar/week"} {
 		rec := do(h, http.MethodGet, path, lan, keyed())
@@ -396,7 +397,7 @@ func TestSolarAccessLogHasNoToken(t *testing.T) {
 	r := okReader()
 	clk := newClock(fixedNow())
 	d := testDeps(clk.Now, nil, nil)
-	d.Influx, d.Entities, d.NetZeroKW = r, solar.DefaultEntities, 0.05
+	d.Influx, d.Entities, d.NetZeroKW, d.TodayWindowHours = r, solar.DefaultEntities, 0.05, 12
 	h := New(d)
 	do(h, http.MethodGet, "/v1/solar/today", lan, keyed())
 	if logs.count(t, "request") != 1 {
@@ -421,5 +422,18 @@ func TestFailureReason(t *testing.T) {
 		if got := failureReason(tt.err); got != tt.want {
 			t.Errorf("failureReason(%q) = %q, want %q", tt.err, got, tt.want)
 		}
+	}
+}
+
+// The window length comes from the configured hours.
+func TestSolarTodayWindowFromConfig(t *testing.T) {
+	h := solarHandler(t, okReader(), newClock(fixedNow()), func(d *Deps) { d.TodayWindowHours = 6 })
+	rec := do(h, http.MethodGet, "/v1/solar/today", lan, keyed())
+	var got solar.Today
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.WindowMin != 360 {
+		t.Fatalf("window_min = %d, want 360", got.WindowMin)
 	}
 }
