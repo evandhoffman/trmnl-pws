@@ -5,8 +5,28 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.40/moment-timezone-with-data.min.js"></script>
 
   <div class="view view--full">
+    <div class="grid grid--cols-3 gap--small" style="margin-bottom: 6px;">
+      <div class="item">
+        <div class="content">
+          <span class="value value--xsmall">{{temp_low_value}}</span>
+          <span class="label">Low @ {{temp_low_time}}</span>
+        </div>
+      </div>
+      <div class="item">
+        <div class="content">
+          <span class="value value--xsmall">{{temp_high_value}}</span>
+          <span class="label">High @ {{temp_high_time}}</span>
+        </div>
+      </div>
+      <div class="item">
+        <div class="content">
+          <span class="value value--xsmall">{{temp_last_value}}</span>
+          <span class="label">Last @ {{temp_last_time}}</span>
+        </div>
+      </div>
+    </div>
 
-    <div id="weather-chart" style="width: 100%; height: 408px;"></div>
+    <div id="weather-chart" style="width: 100%; height: 348px;"></div>
 
     <div class="title_bar">
       <img class="image" src="https://cdn-icons-png.flaticon.com/512/16342/16342339.png" />
@@ -18,9 +38,16 @@
   <script type="text/javascript">
     var data = {{js_temperature_data}};
     var indoorData = {{js_indoor_temperature_data}};
+    var solarEvents = {{js_solar_events}};
+    var allChartPoints = data.concat(indoorData);
+    var xMin = allChartPoints.length ? Math.min.apply(null, allChartPoints.map(function(point) { return point[0]; })) : null;
+    var xMax = allChartPoints.length ? Math.max.apply(null, allChartPoints.map(function(point) { return point[0]; })) : null;
+    var visibleSolarEvents = solarEvents.filter(function(event) {
+      return xMin !== null && xMax !== null && event.timestamp_ms >= xMin && event.timestamp_ms <= xMax;
+    });
 
     // Find temperature range for better y-axis setup
-    const temperatures = data.concat(indoorData).map(point => point[1]);
+    const temperatures = allChartPoints.map(point => point[1]);
     let minTemp = Math.min(...temperatures);
     let maxTemp = Math.max(...temperatures);
 
@@ -52,15 +79,59 @@
     }
 
     const freezingHatchLines = buildFreezingHatchLines(minTemp);
+    const solarEventSeries = visibleSolarEvents.map(function(event) {
+      return {
+        name: event.label,
+        data: [
+          [event.timestamp_ms, minTemp],
+          [event.timestamp_ms, maxTemp]
+        ],
+        color: "#000000",
+        lineWidth: event.label === "Noon" ? 2 : 1,
+        dashStyle: event.label === "Noon" ? "Solid" : "ShortDot",
+        marker: { enabled: false },
+        enableMouseTracking: false,
+        showInLegend: false,
+        dataLabels: {
+          enabled: false
+        }
+      };
+    }).concat(visibleSolarEvents.map(function(event) {
+      return {
+        type: "scatter",
+        name: event.label,
+        data: [[event.timestamp_ms, minTemp + ((maxTemp - minTemp) * 0.06)]],
+        color: "#000000",
+        marker: {
+          enabled: false
+        },
+        enableMouseTracking: false,
+        showInLegend: false,
+        dataLabels: {
+          enabled: true,
+          formatter: function() {
+            return event.label;
+          },
+          align: "left",
+          x: 2,
+          y: 0,
+          style: {
+            color: "#000000",
+            fontSize: "11px",
+            textOutline: "none"
+          }
+        }
+      };
+    }));
 
     // recommended configs to achieve the e-ink friendly aesthetic
     var createChart = function() {
       new Chartkick["LineChart"](
         "weather-chart",
-        [
+        solarEventSeries.concat([
           {name: "Outdoor", data: data, dashStyle: "solid"},
           {name: "Indoor", data: indoorData, dashStyle: "shortdash"}
-        ].filter(series => series.data.length > 0),
+        ]).filter(series => series.data.length > 0),
         {
           adapter: "highcharts",
           suffix: "°F",
@@ -77,7 +148,7 @@
               title: {
                 text: null
               },
-              height: 408,
+              height: 348,
               spacingTop: 6,
               spacingBottom: 8,
               spacingLeft: 0,
@@ -118,6 +189,8 @@
             },
             xAxis: {
               type: "datetime",
+              min: xMin,
+              max: xMax,
               labels: {
                 style: {
                   fontSize: "16px",

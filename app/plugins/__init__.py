@@ -92,3 +92,22 @@ class BasePlugin(ABC):
             Bucket name string
         """
         return self.influx_config.get("bucket", "home_assistant/autogen")
+
+    def get_coordinates(self) -> tuple[float, float] | None:
+        """
+        Get the configured latitude/longitude for solar event annotations.
+
+        Returns:
+            Tuple of (latitude, longitude) if configured, otherwise None
+        """
+        latitude = self.general_config.get("latitude")
+        longitude = self.general_config.get("longitude")
+
+        if latitude in (None, "") or longitude in (None, ""):
+            return None
+
+        try:
+            return float(latitude), float(longitude)
+        except (TypeError, ValueError):
+            logger.warning("Invalid latitude/longitude in config; skipping solar events")
+            return None
