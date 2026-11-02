@@ -1,0 +1,40 @@
+{% comment %}
+  Countdown, full view (800x480).
+  Data: columns[] (source, name, days, state, day_of, day_total, date) and updated.
+  state is upcoming, today or during. An empty slot shows a dash.
+{% endcomment %}
+<div class="view view--full">
+  <div class="layout layout--col">
+    <div class="columns" style="flex: 1; align-items: stretch;">
+      {% for i in (0..2) %}
+        {% assign col = columns[i] %}
+        <div class="column" style="border: 2px solid #000000; border-radius: 8px; padding: 18px 10px; text-align: center; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; align-items: center;">
+          {% if col.name == blank %}
+            <span class="value value--xlarge" style="margin: auto 0;">&mdash;</span>
+          {% else %}
+            <span class="label label--large" style="font-variant-caps: all-small-caps; letter-spacing: 0.08em; font-weight: 700;">{{ col.source }}</span>
+            <div style="display: flex; flex-direction: column; align-items: center;">
+              {% if col.state == "today" %}
+                <span class="value value--xlarge">Today</span>
+              {% elsif col.state == "during" %}
+                <span class="value value--xlarge" style="white-space: nowrap;">Day {{ col.day_of }}</span>
+                <span class="label label--large">of {{ col.day_total }}</span>
+              {% else %}
+                <span class="value value--xxxlarge">{{ col.days }}</span>
+                <span class="label label--large">{% if col.days == 1 %}day{% else %}days{% endif %}</span>
+              {% endif %}
+            </div>
+            <div style="display: flex; flex-direction: column; align-items: center;">
+              <span class="title" style="line-height: 1.15;">{{ col.name }}</span>
+              <span class="label" style="margin-top: 4px;">{{ col.date }}</span>
+            </div>
+          {% endif %}
+        </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="title_bar">
+    <span class="title">Countdown</span>
+    <span class="instance">updated {{ updated }}</span>
+  </div>
+</div>
