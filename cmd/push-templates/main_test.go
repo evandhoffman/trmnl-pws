@@ -15,8 +15,8 @@ import (
 	"time"
 )
 
-// testKey is 32+ printable characters, with characters that JSON escapes.
-const testKey = `k3y<with>&"quote-0123456789abcdefXYZ`
+// testKey is 32+ characters from the allowed set: letters, digits, "-" and "_".
+const testKey = `k3y-with_dash-0123456789abcdefXYZ`
 
 const goodSettings = `---
 strategy: polling
@@ -92,9 +92,18 @@ func TestBuildRefusesEmptyKey(t *testing.T) {
 
 func TestBuildRefusesBadKeyCharacters(t *testing.T) {
 	d := tmplDir(t, goodSettings, "x")
-	for _, k := range []string{"abc\nX-Evil: 1", "has space", "tab\there", "uni\u00e9code"} {
-		if _, err := build(d, k); err == nil {
+	for _, k := range []string{
+		"abc\nX-Evil: 1", "has space", "tab\there", "uni\u00e9code",
+		"part-one&part-two", "name=value", "name:value", "hash#tag",
+		`k3y<with>"quote`, "semi;colon", "comma,sep",
+	} {
+		_, err := build(d, k)
+		if err == nil {
 			t.Errorf("key %q accepted", k)
+			continue
+		}
+		if strings.Contains(err.Error(), k) {
+			t.Errorf("error contains the key %q: %s", k, err)
 		}
 	}
 }

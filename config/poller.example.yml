@@ -1,14 +1,17 @@
 # trmnl-poller configuration. Copy to /etc/trmnl-poller/config.yml, or pass
 # --config <path>. The file is optional: a missing file means every default
 # below. A key you leave out keeps its default. A key you set replaces its
-# default, so "holidays: []" turns every holiday off.
+# default. The list must name at least one holiday: "holidays: []" is
+# refused, so the screen never has an empty column.
 #
 # Secrets and URLs are NOT in this file. Set them in the environment:
-#   TRMNL_POLLER_KEY   required; at least 32 characters; the value TRMNL
-#                      sends in the X-Poller-Key header
-#   TRIPIT_ICAL_URL    optional; the TripIt iCal feed; no URL, no trips
-#   SCHOOL_ICAL_URL    optional; the school calendar iCal feed; no URL,
-#                      no school events
+#   TRMNL_POLLER_KEY   required; at least 32 characters; letters, digits,
+#                      "-" and "_" only; the value TRMNL sends in the
+#                      X-Poller-Key header
+#   TRIPIT_ICAL_URL    optional; the TripIt iCal feed; an https URL; no URL,
+#                      no trips
+#   SCHOOL_ICAL_URL    optional; the school calendar iCal feed; an https URL;
+#                      no URL, no school events
 
 # Address the HTTP server listens on. The container image and the health
 # check use port 8790.

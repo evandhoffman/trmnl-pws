@@ -10,8 +10,10 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net/url"
 	"os"
 	"slices"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v3"
@@ -114,6 +116,16 @@ func (c Config) validate() error {
 		return fmt.Errorf("%s is not set", envKey)
 	case len(c.Key) < MinKeyLength:
 		return fmt.Errorf("%s must have at least %d characters", envKey, MinKeyLength)
+	case !KeyCharsOK(c.Key):
+		return fmt.Errorf("%s may only contain letters, digits, '-' and '_'", envKey)
+	}
+	for _, f := range []struct{ env, value string }{
+		{envTripURL, c.TripURL},
+		{envSchoolURL, c.SchoolURL},
+	} {
+		if err := checkFeedURL(f.env, f.value); err != nil {
+			return err
+		}
 	}
 	if c.Listen == "" {
 		return errors.New("listen must not be empty")
@@ -127,11 +139,48 @@ func (c Config) validate() error {
 	if _, err := time.LoadLocation(c.Timezone); err != nil {
 		return fmt.Errorf("timezone %q: %w", c.Timezone, err)
 	}
+	if len(c.HolidayKeys) == 0 {
+		return errors.New("holidays: list at least one holiday, or remove the key to use the defaults")
+	}
 	if err := holidays.Validate(c.HolidayKeys); err != nil {
 		return fmt.Errorf("holidays: %w", err)
 	}
 	if err := c.SchoolRules.Validate(); err != nil {
 		return fmt.Errorf("school_rules: %w", err)
+	}
+	return nil
+}
+
+// KeyCharsOK reports whether key has only letters, digits, '-' and '_'.
+//
+// TRMNL also parses a "name=value&name=value" form of the polling header. A
+// key with '&', '=', ':' or '#' could be split there, and every poll would
+// return 404. The set is plain ASCII, so no header form can change it.
+func KeyCharsOK(key string) bool {
+	if key == "" {
+		return false
+	}
+	for i := 0; i < len(key); i++ {
+		c := key[i]
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9', c == '-', c == '_':
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+// checkFeedURL refuses a set feed URL that is not an https URL with a host.
+// The error is fixed text. It never holds the value or the parse error,
+// because the TripIt URL carries a token.
+func checkFeedURL(envName, value string) error {
+	if value == "" {
+		return nil
+	}
+	u, err := url.Parse(value)
+	if err != nil || u.Scheme != "https" || u.Hostname() == "" || strings.TrimSpace(value) != value {
+		return fmt.Errorf("%s must be an https URL", envName)
 	}
 	return nil
 }
