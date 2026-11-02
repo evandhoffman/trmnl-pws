@@ -12,12 +12,12 @@ import (
 	"github.com/evandhoffman/trmnl-pws/internal/series"
 )
 
-// update rewrites the solar fixtures from the server output. Run
+// update rewrites every fixture (countdown and solar) from the server output. Run
 //
-//	go test ./internal/server -run TestFixtureMatchesServer -update
+//	go test ./internal/server -run Fixture -update
 //
 // then read the diff: the fixtures are the sample data for the TRMNL render.
-var update = flag.Bool("update", false, "rewrite the solar fixtures from the server output")
+var update = flag.Bool("update", false, "rewrite every fixture from the server output")
 
 // fixturePath is the sample data for the TRMNL template.
 const fixturePath = "../../templates/countdown/fixture.json"
