@@ -46,31 +46,33 @@ type solarCache struct {
 
 // solarPoints returns the readings for one request. It reuses a fetch under
 // 60 s old. When a refresh fails, it returns the last good fetch if that is
-// at most 15 min old, and an error otherwise.
-func (h *handler) solarPoints(ctx context.Context, now time.Time) (map[string][]series.Point, error) {
+// at most 15 min old, and an error otherwise. The second result is the time
+// the readings are good for: now for a fresh fetch, the fetch time for a
+// stale copy.
+func (h *handler) solarPoints(ctx context.Context, now time.Time) (map[string][]series.Point, time.Time, error) {
 	c := &h.solar
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if age := now.Sub(c.fetched); c.have && age >= 0 && age < solarFreshFor {
-		return c.pts, nil
+		return c.pts, now, nil
 	}
 	today := date.Of(now, h.d.Loc)
 	start := today.AddDays(-solarWeekDays).Start(h.d.Loc)
 	pts, err := h.d.Influx.Points(ctx, h.d.Entities.All(), start, now, solarSeedBack)
 	if err == nil {
 		c.have, c.pts, c.fetched = true, pts, now
-		return pts, nil
+		return pts, now, nil
 	}
 	// The log line holds a short reason, never the error text: the text can
 	// name the InfluxDB host.
 	if c.have && now.Sub(c.fetched) <= solarStaleFor {
 		slog.Warn("solar refresh failed", "reason", failureReason(err), "serving", "stale",
 			"age_s", int(now.Sub(c.fetched)/time.Second))
-		return c.pts, nil
+		return c.pts, c.fetched, nil
 	}
 	slog.Warn("solar refresh failed", "reason", failureReason(err), "serving", "none")
-	return nil, err
+	return nil, time.Time{}, err
 }
 
 // failureReason names a read failure in a few safe words: "timeout",
@@ -106,14 +108,14 @@ func (h *handler) solarWeek(w http.ResponseWriter, r *http.Request) {
 
 // serveSolar answers 404 with no InfluxDB reader, 503 with no usable
 // readings, and the built payload otherwise. The payload uses the current
-// time, even when the readings come from the cache.
+// time, even when the readings come from a fresh cache. A stale copy uses its
+// fetch time, so the screen shows the age of the data.
 func (h *handler) serveSolar(w http.ResponseWriter, r *http.Request, build func(time.Time, map[string][]series.Point) any) {
 	if h.d.Influx == nil {
 		http.NotFound(w, r)
 		return
 	}
-	now := h.d.Now()
-	pts, err := h.solarPoints(r.Context(), now)
+	pts, now, err := h.solarPoints(r.Context(), h.d.Now())
 	if err != nil {
 		http.Error(w, "solar data unavailable", http.StatusServiceUnavailable)
 		return

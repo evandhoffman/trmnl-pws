@@ -437,3 +437,43 @@ func TestSolarTodayWindowFromConfig(t *testing.T) {
 		t.Fatalf("window_min = %d, want 360", got.WindowMin)
 	}
 }
+
+// A stale copy is built as of its fetch time, so the screen shows how old the
+// data is and step-hold does not carry readings past the fetch.
+func TestSolarStaleUsesFetchTime(t *testing.T) {
+	r := &fakeReader{fn: func(n int) (map[string][]series.Point, error) {
+		if n == 1 {
+			return synthPoints(), nil
+		}
+		return nil, errors.New("boom")
+	}}
+	clk := newClock(fixedNow()) // 12:00 PM
+	h := solarHandler(t, r, clk, nil)
+	do(h, http.MethodGet, "/v1/solar/today", lan, keyed())
+	clk.Advance(5 * time.Minute)
+
+	rec := do(h, http.MethodGet, "/v1/solar/today", lan, keyed())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body)
+	}
+	var today solar.Today
+	if err := json.Unmarshal(rec.Body.Bytes(), &today); err != nil {
+		t.Fatal(err)
+	}
+	if today.Updated != "12:00 PM" {
+		t.Fatalf("today updated = %q, want 12:00 PM", today.Updated)
+	}
+	want := solar.BuildToday(fixedNow(), ny, 12*time.Hour, synthPoints(), solar.DefaultEntities, nil)
+	if !reflect.DeepEqual(today, want) {
+		t.Fatal("stale body is not built with the fetch time")
+	}
+
+	rec = do(h, http.MethodGet, "/v1/solar/week", lan, keyed())
+	var week solar.Week
+	if err := json.Unmarshal(rec.Body.Bytes(), &week); err != nil {
+		t.Fatal(err)
+	}
+	if week.Updated != "12:00 PM" {
+		t.Fatalf("week updated = %q, want 12:00 PM", week.Updated)
+	}
+}
