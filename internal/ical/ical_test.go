@@ -169,6 +169,10 @@ END:VEVENT`)
 	if got := events[0].Start; got != d(2026, 11, 15) {
 		t.Errorf("start = %v, want 2026-11-15", got)
 	}
+	// 23:00 PST on Nov 14 is 02:00 EST on Nov 15.
+	if got := events[0].End; got != d(2026, 11, 15) {
+		t.Errorf("end = %v, want 2026-11-15", got)
+	}
 }
 
 func TestParseFloatingTimeUsesLoc(t *testing.T) {
@@ -297,5 +301,25 @@ SUMMARY:Good
 END:VEVENT`)
 	if len(events) != 1 || events[0].UID != "b" {
 		t.Fatalf("got %+v, want only event b", events)
+	}
+}
+
+func TestParseRejectsEmptyInput(t *testing.T) {
+	for _, in := range []string{"", "  \r\n\r\n"} {
+		if _, err := Parse(strings.NewReader(in), newYork(t)); err == nil {
+			t.Errorf("Parse(%q): want an error, got nil", in)
+		}
+	}
+}
+
+func TestParseRejectsTruncatedFeed(t *testing.T) {
+	// The body stops at an event boundary: every line is valid, but
+	// END:VCALENDAR never arrives.
+	src := "BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//t//EN\r\n" +
+		"BEGIN:VEVENT\r\nUID:a\r\nDTSTART;VALUE=DATE:20261114\r\n" +
+		"DTEND;VALUE=DATE:20261115\r\nSUMMARY:Cut\r\nEND:VEVENT\r\n"
+	events, err := Parse(strings.NewReader(src), newYork(t))
+	if err == nil {
+		t.Fatalf("want an error for a feed with no END:VCALENDAR, got %+v", events)
 	}
 }

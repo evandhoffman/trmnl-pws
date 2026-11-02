@@ -2,6 +2,8 @@
 package ical
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -29,10 +31,25 @@ type Event struct {
 // Parse reads an iCalendar feed. Every date and time resolves to a calendar
 // date in loc. A time with no zone (no TZID, no Z) is in loc.
 //
+// Parse returns an error when the body does not begin with BEGIN:VCALENDAR
+// and end with END:VCALENDAR, so an empty or cut feed never looks valid.
+//
 // Parse skips an event with no DTSTART or with a time it cannot read. For an
 // event with an RRULE it keeps only the first occurrence and logs a warning.
 func Parse(r io.Reader, loc *time.Location) ([]Event, error) {
-	cal, err := golangical.ParseCalendar(r)
+	// The feeds are small, so read the whole body. The library does not
+	// check that the feed reaches END:VCALENDAR, so a cut body would parse
+	// as a shorter feed.
+	body, err := io.ReadAll(r)
+	if err != nil {
+		return nil, fmt.Errorf("read calendar: %w", err)
+	}
+	trimmed := bytes.TrimSpace(body)
+	if !bytes.HasPrefix(trimmed, []byte("BEGIN:VCALENDAR")) ||
+		!bytes.HasSuffix(trimmed, []byte("END:VCALENDAR")) {
+		return nil, errors.New("parse calendar: body is not a complete VCALENDAR")
+	}
+	cal, err := golangical.ParseCalendar(bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("parse calendar: %w", err)
 	}
