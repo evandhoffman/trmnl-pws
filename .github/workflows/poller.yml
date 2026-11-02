@@ -130,3 +130,74 @@ jobs:
           tags: |
             ghcr.io/evandhoffman/trmnl-poller:${{ github.sha }}
             ghcr.io/evandhoffman/trmnl-poller:latest
+
+  # Push the TRMNL templates. The push is idempotent, so it runs on every
+  # qualifying push to main. Task 14 puts the first plugin id in
+  # templates/plugins.yml; until then the tool skips every entry.
+  templates:
+    needs: check
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Install the trmnl CLI
+        run: |
+          go install github.com/usetrmnl/cli/cmd/trmnl@v0.1.1
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      # A go install build prints "dev" for --version, so read the build info.
+      - name: Check the CLI version
+        run: go version -m "$(command -v trmnl)" | grep -E '^\s+mod\s+github.com/usetrmnl/cli\s+v0\.1\.1\b'
+
+      # The tool puts both keys in the environment of the CLI only. It
+      # never prints them.
+      - name: Push the templates
+        env:
+          TRMNL_API_KEY: ${{ secrets.TRMNL_API_KEY }}
+          TRMNL_POLLER_KEY: ${{ secrets.TRMNL_POLLER_KEY }}
+        run: go run ./cmd/push-templates
+
+  # Render each template with its fixture through TRMNL's render-markup
+  # endpoint. A "Liquid error" fails the job. It uses no poller key and
+  # sends no settings.yml. A fork has no secrets, so the tool skips there.
+  render:
+    needs: check
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: Install the trmnl CLI
+        run: |
+          go install github.com/usetrmnl/cli/cmd/trmnl@v0.1.1
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      # The tool also writes a PNG when google-chrome is on the runner.
+      - name: Render the templates
+        env:
+          TRMNL_API_KEY: ${{ secrets.TRMNL_API_KEY }}
+        run: go run ./cmd/push-templates --render "$RUNNER_TEMP/rendered"
+
+      - name: Upload the rendered output
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: rendered-templates
+          path: ${{ runner.temp }}/rendered
+          if-no-files-found: ignore
+          retention-days: 1
