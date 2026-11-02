@@ -1,6 +1,6 @@
 # TRMNL overhaul: design
 
-Date: 2026-11-01. Status: draft for Evan's review.
+Date: 2026-11-01. Status: approved by Evan, 2026-11-01.
 
 This repo is **public**. This document, the code, and the example config hold
 no LAN addresses, no secrets, no feed URLs, and no personal names beyond what
@@ -66,8 +66,9 @@ screen once the new version is live.
   temperature (12 h chart). Templates are Liquid with Highcharts, in `ui/`
   (the `.erb` extension is historical; the content is Liquid).
 - It runs on **lunix** as a Docker Compose container built from a checkout
-  at `~/git/trmnl-pws`. Production runs the branch `add-chart-annotations`,
-  which is 14 commits ahead of `main`. Deploys are by hand.
+  at `~/git/trmnl-pws`. Production ran the branch `add-chart-annotations`,
+  14 commits ahead of `main`; that branch merged into `main` on 2026-11-01,
+  so `main` now matches production. Deploys are by hand.
 - It holds rate-limit and backoff state, and trims payloads, for the webhook
   limits (12 posts/hour, 5 KB per payload on the standard plan; the repo's
   docs still say 2 KB, which is out of date).
@@ -136,9 +137,16 @@ small source label.
 
 - On the day itself, the column reads "Today". During a multi-day trip it
   reads "Day 2 of 5". A multi-day school break counts down to its first day.
-- The holiday list: New Year's Day, Memorial Day, Independence Day, Labor
-  Day, Halloween, Thanksgiving, Christmas. It lives in config, so Evan can
-  add or remove one without a code change.
+- **Holidays (Evan decided):** every day the NYSE closes for a full day:
+  New Year's Day, Martin Luther King Jr. Day, Washington's Birthday
+  (Presidents' Day), Good Friday, Memorial Day, Juneteenth, Independence
+  Day, Labor Day, Thanksgiving, and Christmas. Compute them by rule; Good
+  Friday needs the Easter date. *My calls:* count down to the holiday's own
+  date (December 25), not the weekday the market observes it; keep
+  Halloween as a family extra; leave out Columbus Day and Veterans Day,
+  which are Federal Reserve bank holidays but NYSE trading days. The list
+  lives in config, so Evan can add or remove one without a code change.
+  Test each rule against the NYSE's published calendar for 2026 and 2027.
 - School events filter by patterns in config, so deadlines and the
   winter-session events stay off the screen. Default patterns, from the
   real feed's titles: `Residence halls close` (when he comes home; it is
@@ -174,7 +182,11 @@ left to the builder, then to Evan's tweaks.
 **Metrics I proposed and Evan has not confirmed** (build them; Evan cuts
 after he sees the screen):
 
-- Lowest charge % overnight.
+- **Time the battery reached its reserve** each day, or "not reached".
+  Evan: the Powerwall keeps a reserve of 30–40%, so the low % itself
+  carries no news, but the time it got there might. Read the reserve from
+  `bellmore_backup_reserve`; it can change, so compare each reading to the
+  reserve in force at that moment.
 - Self-powered %: the share of the day's home load (car included) that solar
   and the battery covered.
 - Grid import and export kWh per day (`bellmore_grid_imported`,
@@ -189,9 +201,9 @@ Other sensors available: `bellmore_solar_generated`, `bellmore_home_usage`,
 
 ### 4.3 Weather and temperature (port)
 
-Port both as they are **on the wall today**, which means the branch
-`add-chart-annotations` (production), not `main` (*my call*). That includes
-the sunrise, solar-noon, and sunset markers. The live compose setup on
+Port both as they are **on the wall today**, which is `main` after the
+2026-11-01 merge of the production branch. That includes the sunrise,
+solar-noon, and sunset markers. The live compose setup on
 lunix uses `network_mode: host` and reaches InfluxDB on the host's port; the
 new container may use the Docker network instead, which is the builder's
 call. Fix the indoor-temperature series (0 readings today:
@@ -362,6 +374,12 @@ creates each item himself, so no raw secret enters a transcript:
 
 Evan wants to see a new screen early and tweak from there.
 
+**Evan decided: no long-running branches.** Every change lands on `main`
+through a small, short-lived pull request (the repo requires PRs on
+`main`). Each phase below is several such PRs, not one branch. Squash-merge.
+Until a new screen is ready, its code ships dark: the Python service keeps
+driving the wall, and the Go service runs alongside it.
+
 1. **Spikes** (throwaway, answer the risks in section 9): the exact file
    format `import-plugin-setting-files` expects, round-tripped
    with `get-plugin-setting-files` on a scratch plugin; whether polling has a
@@ -411,15 +429,18 @@ net-zero meaning grid ≈ 0, not outages; polling over webhooks; a
 locked-down endpoint at `trmnl-poller.evanhoffman.com`; Go is acceptable;
 no TRMNL+; Developer edition is available; weather and temperature
 unchanged for now; the builder applies the lunix changes and reloads nginx
-through Docker.
+through Docker; NYSE full-closure days as the holidays; the time the
+battery reached reserve instead of the overnight low; no long-running
+branches; the production branch merges into `main`.
 
 **I decided (marked "my call" above):** Go over Python; the "Today" and
 "Day 2 of 5" wording; the holiday list; school keyword filtering;
 city-and-dates only for trips; the ±0.05 kW cutoff; kWh with one decimal;
-the four unconfirmed solar metrics; daily Watchtower; image-on-merge with no
+the unconfirmed solar metrics; counting down to a holiday's own date;
+Halloween as an extra; no Columbus or Veterans Day; daily Watchtower; image-on-merge with no
 tags; a new read-only InfluxDB token; the secret names; an allowlist job
 that applies TRMNL's list itself; fixture-only CI previews; CI pushes
-`settings.yml` with the secret injected; porting from the production branch.
+`settings.yml` with the secret injected.
 
 **Left to the builder:** the solar summary layout; Go module layout and
 library choices; JSON shapes per path; cache durations; how CI renders a
