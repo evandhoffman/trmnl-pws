@@ -12,6 +12,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -246,7 +247,7 @@ func parse(data []byte) (map[string][]series.Point, error) {
 			return nil, fmt.Errorf("influx: bad _time %q", rec[timeCol])
 		}
 		v, err := strconv.ParseFloat(rec[valueCol], 64)
-		if err != nil {
+		if err != nil || math.IsNaN(v) || math.IsInf(v, 0) {
 			return nil, fmt.Errorf("influx: bad _value %q", rec[valueCol])
 		}
 		id := rec[entityCol]

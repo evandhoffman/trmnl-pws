@@ -28,7 +28,7 @@
 <script type="text/javascript">
 (function () {
   var solar = {{ str_solar }}, home = {{ str_home }}, grid = {{ str_grid }}, batt = {{ str_battery }};
-  var sun = {{ str_sun }}, bev = {{ str_batt_events | default: "[]" }}, midMin = {{ midnight_min }}, midLabel = "{{ midnight_label }}", reserve = {{ reserve_pct | default: "null" }};
+  var sun = {{ str_sun }}, bev = {{ str_batt_events | default: "[]" }}, midMin = {{ midnight_min | default: -1 }}, midLabel = "{{ midnight_label }}", reserve = {{ reserve_pct | default: "null" }};
   var LEFT = 44, RIGHT = 62;               // shared margins so both charts line up
   var ink = "#000", mid = "#555", hair = "#bbb";
   var font = { fontFamily: '"NicoClean", "Inter Variable", Inter, sans-serif', color: ink };
@@ -63,13 +63,13 @@
     var lines = sunLines(false);
     bev.forEach(function (e, i) {
       lines.push({ value: e.min, color: ink, width: 2, zIndex: 5,
-        label: { text: e.label + " " + e.time, rotation: 0, align: e.min > {{ window_min }} - 200 ? "right" : "left",
-          x: e.min > {{ window_min }} - 200 ? -4 : 4, y: 11 + (i % 2) * 13, verticalAlign: "top",
+        label: { text: e.label + " " + e.time, rotation: 0, align: e.min > {{ window_min | default: 1440 }} - 200 ? "right" : "left",
+          x: e.min > {{ window_min | default: 1440 }} - 200 ? -4 : 4, y: 11 + (i % 2) * 13, verticalAlign: "top",
           style: { fontSize: "11px", fontWeight: "700", color: ink, textOutline: "3px #fff" } } });
     });
     return lines;
   }
-  var xAxis = { min: 0, max: {{ window_min }}, tickPositions: tickPos,
+  var xAxis = { min: 0, max: {{ window_min | default: 1440 }}, tickPositions: tickPos,
     lineColor: ink, lineWidth: 1, tickLength: 4, tickColor: ink, gridLineWidth: 0 };
 
   Highcharts.setOptions({ chart: { animation: false, style: font }, credits: { enabled: false },

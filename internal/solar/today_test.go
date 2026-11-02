@@ -609,3 +609,60 @@ func TestTodayFullShownOnceDraining(t *testing.T) {
 		{"draining", 600, "2:00p"},
 	})
 }
+
+// R13: today's marks are final only when the battery has really left its max.
+func TestTodayMarksDipAndRecoverStaysHidden(t *testing.T) {
+	loc := ny(t)
+	now := at(loc, 10, 30, 11, 20)
+	pts := pointMap{
+		DefaultEntities.ChargePct: {
+			pt(at(loc, 10, 30, 6, 0), 50),
+			pt(at(loc, 10, 30, 11, 0), 55),
+			pt(at(loc, 10, 30, 11, 10), 54), // 1 point below max, no Set known
+		},
+		DefaultEntities.ReservePct: {pt(at(loc, 10, 1, 0, 0), 20)},
+	}
+	got := markers(t, BuildToday(now, loc, w12, pts, DefaultEntities, nil).StrBattEvents)
+	checkEvents(t, got, []marker{})
+}
+
+func TestTodayMarksShownThreePointsBelowMax(t *testing.T) {
+	loc := ny(t)
+	now := at(loc, 10, 30, 11, 20)
+	pts := pointMap{
+		DefaultEntities.ChargePct: {
+			pt(at(loc, 10, 30, 6, 0), 50),
+			pt(at(loc, 10, 30, 11, 0), 55),
+			pt(at(loc, 10, 30, 11, 10), 51), // 4 points below max
+		},
+		DefaultEntities.ReservePct: {pt(at(loc, 10, 1, 0, 0), 20)},
+	}
+	got := markers(t, BuildToday(now, loc, w12, pts, DefaultEntities, nil).StrBattEvents)
+	checkEvents(t, got, []marker{
+		{"full", 700, "11:00a"},
+		{"draining", 710, "11:10a"},
+	})
+}
+
+func TestTodayMarksShownAfterSunset(t *testing.T) {
+	loc := ny(t)
+	now := at(loc, 10, 30, 17, 30)
+	pts := pointMap{
+		DefaultEntities.ChargePct: {
+			pt(at(loc, 10, 30, 6, 0), 50),
+			pt(at(loc, 10, 30, 14, 0), 80),
+			pt(at(loc, 10, 30, 15, 0), 79), // 1 point below max
+		},
+		DefaultEntities.ReservePct: {pt(at(loc, 10, 1, 0, 0), 20)},
+	}
+	events := []sun.Event{{Label: "Set", At: at(loc, 10, 30, 16, 51)}}
+	got := markers(t, BuildToday(now, loc, w12, pts, DefaultEntities, events).StrBattEvents)
+	checkEvents(t, got, []marker{
+		{"full", 510, "2:00p"},
+		{"draining", 570, "3:00p"},
+	})
+	// Before sunset, the same data shows nothing.
+	early := at(loc, 10, 30, 16, 30)
+	got = markers(t, BuildToday(early, loc, w12, pts, DefaultEntities, events).StrBattEvents)
+	checkEvents(t, got, []marker{})
+}
