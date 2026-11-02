@@ -27,13 +27,13 @@ type Day struct {
 
 // Week is the Solar Week payload. The Str fields hold JSON text for the chart.
 type Week struct {
-	Days          []Day  `json:"days"`
-	WeekSolarKWh  string `json:"week_solar_kwh"`
-	Updated       string `json:"updated"`
-	StrCategories string `json:"str_categories"`
-	StrSolar      string `json:"str_solar"`
-	StrLoad       string `json:"str_load"`
-	StrGrid       string `json:"str_grid"`
+	Days          []Day   `json:"days"`
+	WeekSolarKWh  *string `json:"week_solar_kwh"`
+	Updated       string  `json:"updated"`
+	StrCategories string  `json:"str_categories"`
+	StrSolar      string  `json:"str_solar"`
+	StrLoad       string  `json:"str_load"`
+	StrGrid       string  `json:"str_grid"`
 }
 
 // BuildWeek builds eight days: the seven before today, then today up to now.
@@ -44,6 +44,7 @@ func BuildWeek(today date.Date, now time.Time, loc *time.Location, pts map[strin
 	var cats []string
 	var solar, load, grid []float64
 	var weekSolar float64
+	haveSolar := false
 
 	for i := 0; i < 8; i++ {
 		d := today.AddDays(i - 7)
@@ -62,13 +63,18 @@ func BuildWeek(today date.Date, now time.Time, loc *time.Location, pts map[strin
 		row.Label = &label
 		w.Days = append(w.Days, row)
 
-		weekSolar += c.solar
+		if row.SolarKWh != nil {
+			weekSolar += c.solar
+			haveSolar = true
+		}
 		solar = append(solar, round(c.solar, 1))
 		load = append(load, round(c.home, 1))
 		grid = append(grid, round(c.gridIn-c.gridOut, 1))
 	}
 
-	w.WeekSolarKWh = f1(weekSolar)
+	if haveSolar {
+		w.WeekSolarKWh = strp(f1(weekSolar))
+	}
 	w.StrCategories = jsonString(cats)
 	w.StrSolar = jsonString(solar)
 	w.StrLoad = jsonString(load)
@@ -84,11 +90,7 @@ func buildDay(start, end time.Time, pts map[string][]series.Point, e Entities, n
 	var d Day
 	var c counters
 
-	// The Tesla counters reset at local midnight: the last reading is the total.
-	total := func(id string) (float64, bool) {
-		p, ok := series.LastIn(pts[id], start, end)
-		return p.V, ok
-	}
+	total := func(id string) (float64, bool) { return counterTotal(pts[id], start, end) }
 	kwh := func(id string, dst **string, val *float64) {
 		if v, ok := total(id); ok {
 			*dst = strp(f1(v))
@@ -132,4 +134,22 @@ func timeCell(t *time.Time, loc *time.Location) *string {
 		return nil
 	}
 	return strp(compactTime(t.In(loc)))
+}
+
+// counterTotal returns the total of a daily counter over [start, end). The
+// Tesla counters reset at local midnight, so the last reading in the window is
+// the total. Home Assistant writes only on change, so a counter that sits at 0
+// all day has no row in the window. Then the value held from before the window
+// decides: exactly 0 is a known total of 0. A nonzero seed means the midnight
+// reset never arrived, and no seed means no history, so both give no total.
+func counterTotal(pts []series.Point, start, end time.Time) (float64, bool) {
+	if p, ok := series.LastIn(pts, start, end); ok {
+		return p.V, true
+	}
+	for i := len(pts) - 1; i >= 0; i-- {
+		if pts[i].T.Before(start) {
+			return 0, pts[i].V == 0
+		}
+	}
+	return 0, false
 }

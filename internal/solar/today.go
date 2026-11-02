@@ -75,8 +75,8 @@ func BuildToday(now time.Time, loc *time.Location, pts map[string][]series.Point
 		MidnightLabel: dayLabel(mid),
 	}
 
-	if p, ok := series.LastIn(pts[e.SolarKWh], mid, now); ok {
-		t.GeneratedKWh = strp(f1(p.V))
+	if v, ok := counterTotal(pts[e.SolarKWh], mid, now); ok {
+		t.GeneratedKWh = strp(f1(v))
 	}
 	t.PeakKW, t.PeakTime = peak(solar, mid, loc)
 	t.NowSolarKW = nowValue(pts[e.SolarKW], now, f1)

@@ -47,8 +47,8 @@ func TestWeekShape(t *testing.T) {
 			t.Errorf("%s = %q, want nil", name, *p)
 		}
 	}
-	if w.WeekSolarKWh != "0.0" {
-		t.Errorf("WeekSolarKWh = %q, want 0.0", w.WeekSolarKWh)
+	if w.WeekSolarKWh != nil {
+		t.Errorf("WeekSolarKWh = %q, want nil", *w.WeekSolarKWh)
 	}
 }
 
@@ -264,7 +264,62 @@ func TestWeekBars(t *testing.T) {
 	if grid[0] != 0 {
 		t.Errorf("grid[0] = %v, want 0", grid[0])
 	}
-	if w.WeekSolarKWh != "59.8" {
-		t.Errorf("WeekSolarKWh = %q, want 59.8", w.WeekSolarKWh)
+	if got := str(w.WeekSolarKWh); got != "59.8" {
+		t.Errorf("WeekSolarKWh = %q, want 59.8", got)
+	}
+}
+
+func TestWeekSolarSumSkipsMissingDays(t *testing.T) {
+	loc := ny(t)
+	// Solar totals exist on 10/28 and 10/30 only; the other days have none.
+	pts := pointMap{DefaultEntities.SolarKWh: {
+		pt(at(loc, 10, 28, 18, 0), 40.5),
+		pt(at(loc, 10, 30, 12, 0), 9.5),
+	}}
+	w := weekFor(t, pts)
+	if got := str(w.WeekSolarKWh); got != "50.0" {
+		t.Fatalf("WeekSolarKWh = %q, want 50.0", got)
+	}
+	b, err := json.Marshal(weekFor(t, pointMap{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatal(err)
+	}
+	if v, ok := m["week_solar_kwh"]; !ok || v != nil {
+		t.Errorf("week_solar_kwh = %v (present %v), want null", v, ok)
+	}
+}
+
+func TestWeekCounterWithoutRows(t *testing.T) {
+	loc := ny(t)
+	e := DefaultEntities
+	// 10/28: grid in and out sit at 0 from before the day, with no rows inside it.
+	// Home has a reading, so the day is fully self-powered.
+	pts := pointMap{
+		e.GridInKWh:  {pt(at(loc, 10, 27, 23, 59), 0)},
+		e.GridOutKWh: {pt(at(loc, 10, 27, 23, 59), 0)},
+		e.HomeKWh:    {pt(at(loc, 10, 28, 20, 0), 30.0)},
+		// Solar seed is nonzero and has no row on 10/28: the reset never arrived.
+		e.SolarKWh: {pt(at(loc, 10, 27, 23, 59), 12.0)},
+	}
+	d := weekFor(t, pts).Days[5]
+	for name, c := range map[string][2]string{
+		"grid in":  {str(d.GridInKWh), "0.0"},
+		"grid out": {str(d.GridOutKWh), "0.0"},
+		"home":     {str(d.HomeKWh), "30.0"},
+		"self":     {str(d.SelfPoweredPct), "100"},
+		"solar":    {str(d.SolarKWh), "<nil>"},
+	} {
+		if c[0] != c[1] {
+			t.Errorf("%s = %q, want %q", name, c[0], c[1])
+		}
+	}
+	// No seed and no rows: nil.
+	d = weekFor(t, pointMap{}).Days[5]
+	if d.GridInKWh != nil || d.SelfPoweredPct != nil {
+		t.Errorf("no seed: grid in %s, self %s, want nil", str(d.GridInKWh), str(d.SelfPoweredPct))
 	}
 }

@@ -5,6 +5,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/evandhoffman/trmnl-pws/internal/series"
+
 	"github.com/evandhoffman/trmnl-pws/internal/sun"
 )
 
@@ -304,5 +306,24 @@ func TestTodayNoSolarPeak(t *testing.T) {
 	got := BuildToday(now, loc, pts, DefaultEntities, nil)
 	if str(got.PeakKW) != "0.0" || got.PeakTime != nil {
 		t.Fatalf("peak = %s at %s, want 0.0 and no time", str(got.PeakKW), str(got.PeakTime))
+	}
+}
+
+func TestTodayGeneratedWithoutRows(t *testing.T) {
+	now, loc := fridayNow(t)
+	cases := []struct {
+		name string
+		pts  []series.Point
+		want string
+	}{
+		{"zero seed", []series.Point{pt(at(loc, 10, 29, 23, 59), 0)}, "0.0"},
+		{"nonzero seed", []series.Point{pt(at(loc, 10, 29, 23, 59), 31.2)}, "<nil>"},
+		{"no seed", nil, "<nil>"},
+	}
+	for _, c := range cases {
+		got := BuildToday(now, loc, pointMap{DefaultEntities.SolarKWh: c.pts}, DefaultEntities, nil)
+		if str(got.GeneratedKWh) != c.want {
+			t.Errorf("%s: generated = %q, want %q", c.name, str(got.GeneratedKWh), c.want)
+		}
 	}
 }
