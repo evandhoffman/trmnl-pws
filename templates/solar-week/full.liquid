@@ -29,7 +29,7 @@
           <td class="sw-sep"><span class="label">{% if d.self_powered_pct == nil %}&mdash;{% else %}{{ d.self_powered_pct }}%{% endif %}</span></td>
           <td><span class="label">{% if d.net_zero_h == nil %}&mdash;{% else %}{{ d.net_zero_h }} h{% endif %}</span></td>
           <td><span class="label">{% if d.peak_pct == nil %}&mdash;{% else %}{{ d.peak_pct }}%{% endif %}</span></td>
-          <td><span class="label">{% if d.peak_time == nil %}&mdash;{% else %}{{ d.peak_time }}{% endif %}</span></td>
+          <td><span class="label">{% if d.full_time == nil %}&mdash;{% else %}{{ d.full_time }}{% endif %}</span></td>
           <td><span class="label">{% if d.drain_time == nil %}&mdash;{% else %}{{ d.drain_time }}{% endif %}</span></td>
           <td><span class="label">{% if d.reserve_time == nil %}&mdash;{% else %}{{ d.reserve_time }}{% endif %}</span></td>
           <td class="sw-sep"><span class="label">{% if d.car_kwh == nil %}&mdash;{% else %}{{ d.car_kwh }}{% endif %}</span></td>
@@ -40,7 +40,7 @@
   </div>
   <div class="title_bar">
     <span class="label" style="font-weight: 700;">Solar Week</span>
-    <span class="instance">{{ week_solar_kwh }} kWh solar &middot; kWh unless marked &middot; updated {{ updated }}</span>
+    <span class="instance">{% if week_solar_kwh == nil %}&mdash;{% else %}{{ week_solar_kwh }}{% endif %} kWh solar &middot; kWh unless marked &middot; updated {{ updated }}</span>
   </div>
 </div>
 <script type="text/javascript">

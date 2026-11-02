@@ -27,15 +27,14 @@
 <script type="text/javascript">
 (function () {
   var solar = {{ str_solar }}, home = {{ str_home }}, grid = {{ str_grid }}, batt = {{ str_battery }};
-  var sun = {{ str_sun }}, bev = {{ str_batt_events | default: "[]" }}, startMin = {{ start_min }}, midMin = {{ midnight_min }}, midLabel = "{{ midnight_label }}", reserve = {{ reserve_pct | default: "null" }};
+  var sun = {{ str_sun }}, bev = {{ str_batt_events | default: "[]" }}, midMin = {{ midnight_min }}, midLabel = "{{ midnight_label }}", reserve = {{ reserve_pct | default: "null" }};
   var LEFT = 44, RIGHT = 62;               // shared margins so both charts line up
   var ink = "#000", mid = "#555", hair = "#bbb";
   var font = { fontFamily: '"NicoClean", "Inter Variable", Inter, sans-serif', color: ink };
 
-  function hourLabel(m) {
-    var h = Math.round((m + startMin) / 60) % 24, ap = h < 12 ? "a" : "p", h12 = h % 12 === 0 ? 12 : h % 12;
-    return h12 + ap;
-  }
+  var ticks = {{ str_ticks | default: "[]" }};   // [[minute, "6p"], ...] from the server
+  var tickText = {}, tickPos = [];
+  ticks.forEach(function (t) { tickPos.push(t[0]); tickText[t[0]] = t[1]; });
   function sunLines(withLabels) {
     var lines = [];
     sun.forEach(function (s) {
@@ -69,8 +68,7 @@
     });
     return lines;
   }
-  var ticks = []; for (var m = (180 - startMin % 180) % 180; m <= 1440; m += 180) { ticks.push(m); }
-  var xAxis = { min: 0, max: 1440, tickPositions: ticks,
+  var xAxis = { min: 0, max: 1440, tickPositions: tickPos,
     lineColor: ink, lineWidth: 1, tickLength: 4, tickColor: ink, gridLineWidth: 0 };
 
   Highcharts.setOptions({ chart: { animation: false, style: font }, credits: { enabled: false },
@@ -97,7 +95,7 @@
 
   Highcharts.chart("battery", {
     chart: { marginLeft: LEFT, marginRight: RIGHT, spacingTop: 6, spacingBottom: 2 },
-    xAxis: Highcharts.merge(xAxis, { labels: { formatter: function () { return hourLabel(this.value); },
+    xAxis: Highcharts.merge(xAxis, { labels: { formatter: function () { return tickText[this.value] || ""; },
       style: { fontSize: "11px", color: ink }, y: 14 }, plotLines: battLines() }),
     yAxis: { min: 0, max: 100, tickPositions: [0, 50, 100], gridLineColor: hair, gridLineWidth: 1, title: { text: null },
       labels: { format: "{value}%", style: { fontSize: "11px", color: ink }, x: -6 },
