@@ -1,0 +1,11 @@
+#datatype,string,long,dateTime:RFC3339,double,string
+#group,false,false,false,false,true
+#default,_result,,,,
+,result,table,_time,_value,entity_id
+,_result,0,2026-10-23T05:10:00Z,40.5,battery_reserve
+,_result,0,2026-10-25T14:00:00Z,20,battery_reserve
+
+,result,table,entity_id,_value,_time
+,_result,1,solar_power,1500.25,2026-10-24T16:00:00.5Z
+,_result,1,solar_power,0,2026-10-24T23:30:00Z
+,_result,2,solar_power,300,2026-10-22T09:00:00Z
