@@ -51,3 +51,6 @@ solar_summary/config.yml
 
 # Brainstorm mockups (local only)
 .superpowers/
+
+# Go poller binary
+/trmnl-poller
