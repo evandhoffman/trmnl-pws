@@ -12,7 +12,7 @@
           {% if col.name == blank %}
             <span class="value value--xlarge" style="margin: auto 0;">&mdash;</span>
           {% else %}
-            <span class="label label--large" style="font-variant-caps: all-small-caps; letter-spacing: 0.08em; font-weight: 700;">{{ col.source }}</span>
+            <span class="label label--large" style="font-variant-caps: all-small-caps; letter-spacing: 0.08em; font-weight: 700;">{{ col.source | escape }}</span>
             <div style="display: flex; flex-direction: column; align-items: center;">
               {% if col.state == "today" %}
                 <span class="value value--xlarge">Today</span>
@@ -25,7 +25,7 @@
               {% endif %}
             </div>
             <div style="display: flex; flex-direction: column; align-items: center;">
-              <span class="title" style="line-height: 1.15;">{{ col.name }}</span>
+              <span class="title" style="line-height: 1.15;">{{ col.name | escape }}</span>
               <span class="label" style="margin-top: 4px;">{{ col.date }}</span>
             </div>
           {% endif %}

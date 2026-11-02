@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -15,8 +16,8 @@ import (
 	"time"
 )
 
-// testKey is 32+ printable characters, with characters that JSON escapes.
-const testKey = `k3y<with>&"quote-0123456789abcdefXYZ`
+// testKey is 32+ characters from the allowed set: letters, digits, "-" and "_".
+const testKey = `k3y-with_dash-0123456789abcdefXYZ`
 
 const goodSettings = `---
 strategy: polling
@@ -73,6 +74,24 @@ func TestBuildSubstitutesKey(t *testing.T) {
 	}
 }
 
+// Event names come from a public calendar and land in HTML. The template
+// must escape every column text field that comes from a feed.
+func TestCountdownTemplateEscapesFeedText(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "..", "templates", "countdown", "full.liquid"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := regexp.MustCompile(`\{\{-?\s*col\.(name|source)\s*-?\}\}`)
+	if m := raw.FindString(string(b)); m != "" {
+		t.Errorf("full.liquid prints %q without | escape", m)
+	}
+	for _, f := range []string{"col.name", "col.source"} {
+		if !strings.Contains(string(b), "{{ "+f+" | escape }}") {
+			t.Errorf("full.liquid has no {{ %s | escape }}", f)
+		}
+	}
+}
+
 func TestBuildRealCountdownTemplate(t *testing.T) {
 	got, err := build(filepath.Join("..", "..", "templates", "countdown"), testKey)
 	if err != nil {
@@ -92,9 +111,18 @@ func TestBuildRefusesEmptyKey(t *testing.T) {
 
 func TestBuildRefusesBadKeyCharacters(t *testing.T) {
 	d := tmplDir(t, goodSettings, "x")
-	for _, k := range []string{"abc\nX-Evil: 1", "has space", "tab\there", "uni\u00e9code"} {
-		if _, err := build(d, k); err == nil {
+	for _, k := range []string{
+		"abc\nX-Evil: 1", "has space", "tab\there", "uni\u00e9code",
+		"part-one&part-two", "name=value", "name:value", "hash#tag",
+		`k3y<with>"quote`, "semi;colon", "comma,sep",
+	} {
+		_, err := build(d, k)
+		if err == nil {
 			t.Errorf("key %q accepted", k)
+			continue
+		}
+		if strings.Contains(err.Error(), k) {
+			t.Errorf("error contains the key %q: %s", k, err)
 		}
 	}
 }

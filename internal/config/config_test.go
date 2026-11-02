@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -129,12 +130,13 @@ func TestErrorsNeverContainSecrets(t *testing.T) {
 	const feedURL = "https://example.invalid/secret-token-path.ics"
 	short := "short-secret-key-value"
 	cases := map[string]string{
-		"short key":     "",
-		"bad holiday":   "holidays: [festivus]\n",
-		"bad regex":     "school_rules:\n  include: ['(']\n",
-		"bad timezone":  "timezone: Mars/Olympus\n",
-		"bad yaml":      "listen: [\n",
-		"unknown field": "bogus: 1\n",
+		"short key":      "",
+		"bad holiday":    "holidays: [festivus]\n",
+		"bad regex":      "school_rules:\n  include: ['(']\n",
+		"bad timezone":   "timezone: Mars/Olympus\n",
+		"bad yaml":       "listen: [\n",
+		"unknown field":  "bogus: 1\n",
+		"empty holidays": "holidays: []\n",
 	}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -160,6 +162,95 @@ func TestErrorsNeverContainSecrets(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestBadFeedURLsAreRefusedWithoutLeaking covers each URL variable. The error
+// is fixed text: it holds neither the value nor the parse error, because the
+// TripIt URL carries a token.
+func TestBadFeedURLsAreRefusedWithoutLeaking(t *testing.T) {
+	bad := map[string]string{
+		"webcal":            "webcal://example.invalid/secret-token-path.ics",
+		"http":              "http://example.invalid/secret-token-path.ics",
+		"no host":           "https:///secret-token-path",
+		"trailing newline":  "https://example.invalid/secret-token-path.ics\n",
+		"leading space":     " https://example.invalid/secret-token-path.ics",
+		"bad escape":        "https://example.invalid/%zz-secret-token-path",
+		"control character": "https://example.invalid/secret-token-path\x7f.ics",
+		"no scheme":         "example.invalid/secret-token-path.ics",
+		"port only":         "https://:443/secret-token-path.ics",
+	}
+	for _, name := range []string{"TRIPIT_ICAL_URL", "SCHOOL_ICAL_URL"} {
+		for label, value := range bad {
+			t.Run(name+"/"+label, func(t *testing.T) {
+				_, err := Load(missingPath(t), env(map[string]string{
+					"TRMNL_POLLER_KEY": goodKey,
+					name:               value,
+				}))
+				if err == nil {
+					t.Fatal("want an error")
+				}
+				want := name + " must be an https URL"
+				if err.Error() != want {
+					t.Fatalf("error = %q, want %q", err, want)
+				}
+				if strings.Contains(err.Error(), "secret-token-path") || strings.Contains(err.Error(), "example.invalid") {
+					t.Fatalf("error leaks the value: %v", err)
+				}
+				if errors.Unwrap(err) != nil {
+					t.Fatal("error wraps another error")
+				}
+			})
+		}
+	}
+}
+
+func TestRefusesKeyOutsideAllowedSet(t *testing.T) {
+	const pad = "0123456789abcdef0123456789abcde" // 31 characters
+	for label, ch := range map[string]string{
+		"ampersand": "&", "equals": "=", "colon": ":", "hash": "#", "space": " ",
+		"non-ASCII letter": "\u00e9", "semicolon": ";", "newline": "\n", "quote": `"`,
+	} {
+		t.Run(label, func(t *testing.T) {
+			key := pad + ch + "xy"
+			_, err := Load(missingPath(t), env(map[string]string{"TRMNL_POLLER_KEY": key}))
+			if err == nil {
+				t.Fatal("want an error")
+			}
+			if !strings.Contains(err.Error(), "TRMNL_POLLER_KEY") ||
+				!strings.Contains(err.Error(), "letters, digits") {
+				t.Errorf("error does not name the variable and the rule: %v", err)
+			}
+			if strings.Contains(err.Error(), key) || strings.Contains(err.Error(), pad) {
+				t.Errorf("error leaks the key: %v", err)
+			}
+		})
+	}
+}
+
+func TestAcceptsKeyWithDashAndUnderscore(t *testing.T) {
+	key := "abcdEFGH-1234_ijkl-5678_MNOP-9012_qr"
+	if _, err := Load(missingPath(t), env(map[string]string{"TRMNL_POLLER_KEY": key})); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestRefusesEmptyHolidayList(t *testing.T) {
+	p := writeFile(t, "holidays: []\n")
+	_, err := Load(p, env(map[string]string{"TRMNL_POLLER_KEY": goodKey}))
+	if err == nil || !strings.Contains(err.Error(), "holidays") || !strings.Contains(err.Error(), "at least one") {
+		t.Fatalf("got %v", err)
+	}
+}
+
+func TestAbsentHolidaysKeepsDefaults(t *testing.T) {
+	p := writeFile(t, "school_label: Hogwarts\n")
+	cfg, err := Load(p, env(map[string]string{"TRMNL_POLLER_KEY": goodKey}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(cfg.HolidayKeys, holidays.DefaultKeys) {
+		t.Fatalf("holidays: %v", cfg.HolidayKeys)
 	}
 }
 

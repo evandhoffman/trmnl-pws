@@ -31,6 +31,8 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/evandhoffman/trmnl-pws/internal/config"
 )
 
 const (
@@ -102,15 +104,15 @@ func build(dir, key string) (map[string]string, error) {
 	return map[string]string{"settings.yml": settings, "full.liquid": liquid}, nil
 }
 
-// checkKeyChars refuses a key that could break out of the header line.
+// checkKeyChars refuses a key outside the poller's allowed set. TRMNL also
+// parses a "name=value&name=value" header form, so "&", "=", ":" and "#" could
+// split the key and every poll would return 404. The error never holds the key.
 func checkKeyChars(key string) error {
 	if key == "" {
-		return errors.New("poller key is empty")
+		return errors.New("TRMNL_POLLER_KEY is empty")
 	}
-	for _, r := range key {
-		if r < 0x21 || r > 0x7e {
-			return errors.New("poller key has a character outside printable ASCII")
-		}
+	if !config.KeyCharsOK(key) {
+		return errors.New("TRMNL_POLLER_KEY may only contain letters, digits, '-' and '_'")
 	}
 	return nil
 }
@@ -412,6 +414,10 @@ func run(args []string, getenv func(string) string, stdout io.Writer, runner Run
 	}
 	if len(pollerKey) < minPollerKeyLen {
 		log.Error(fmt.Sprintf("TRMNL_POLLER_KEY must be at least %d characters", minPollerKeyLen))
+		return 1
+	}
+	if err := checkKeyChars(pollerKey); err != nil {
+		log.Error(err.Error())
 		return 1
 	}
 	if apiKey == "" {
