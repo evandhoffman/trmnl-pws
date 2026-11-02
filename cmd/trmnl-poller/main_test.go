@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/evandhoffman/trmnl-pws/internal/config"
+	"github.com/evandhoffman/trmnl-pws/internal/server"
+	"github.com/evandhoffman/trmnl-pws/internal/solar"
 )
 
 const goodKey = "0123456789abcdef0123456789abcdef"
@@ -205,6 +207,80 @@ func TestBuildDepsFeeds(t *testing.T) {
 	}
 	if d.Loc.String() != "America/New_York" || d.Version != "v" || d.Key != goodKey {
 		t.Fatalf("deps: %+v", d)
+	}
+}
+
+func TestBuildDepsSolar(t *testing.T) {
+	cfg := testConfig()
+	cfg.Entities = solar.DefaultEntities
+	cfg.NetZeroKW = 0.05
+	d, err := buildDeps(cfg, "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Influx != nil {
+		t.Fatal("no INFLUX_URL must mean no reader")
+	}
+	lat, lon := 41.0, -73.0
+	cfg.InfluxURL = "http://influxdb2.invalid:8086"
+	cfg.InfluxToken = "token-value"
+	cfg.InfluxOrg = "bellmore"
+	cfg.InfluxBucket = "home_assistant/autogen"
+	cfg.Latitude, cfg.Longitude = &lat, &lon
+	d, err = buildDeps(cfg, "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.Influx == nil {
+		t.Fatal("INFLUX_URL must wire the reader")
+	}
+	if d.Entities != solar.DefaultEntities || d.NetZeroKW != 0.05 {
+		t.Fatalf("solar deps: %+v %v", d.Entities, d.NetZeroKW)
+	}
+	if d.Latitude == nil || *d.Latitude != 41.0 || d.Longitude == nil || *d.Longitude != -73.0 {
+		t.Fatalf("coordinates: %v %v", d.Latitude, d.Longitude)
+	}
+}
+
+// TestSolarThroughRealClient sends a request through the wired handler to a
+// fake InfluxDB. It checks the token header, the org, and the 200 answer.
+func TestSolarThroughRealClient(t *testing.T) {
+	var gotAuth, gotOrg string
+	fake := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth, gotOrg = r.Header.Get("Authorization"), r.URL.Query().Get("org")
+		w.Header().Set("Content-Type", "text/csv")
+		_, _ = w.Write([]byte(",result,table,_time,_value,entity_id\n" +
+			",_result,0,2026-11-01T14:00:00Z,3.5,bellmore_solar_power\n"))
+	}))
+	defer fake.Close()
+
+	cfg := testConfig()
+	cfg.Entities = solar.DefaultEntities
+	cfg.NetZeroKW = 0.05
+	cfg.InfluxURL, cfg.InfluxToken = fake.URL, "token-value"
+	cfg.InfluxOrg, cfg.InfluxBucket = "bellmore", "home_assistant/autogen"
+	d, err := buildDeps(cfg, "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	d.Now = func() time.Time { return time.Date(2026, 11, 1, 12, 0, 0, 0, d.Loc) }
+	ts := httptest.NewServer(server.New(d))
+	defer ts.Close()
+
+	for _, path := range []string{"/v1/solar/today", "/v1/solar/week"} {
+		req, _ := http.NewRequest(http.MethodGet, ts.URL+path, nil)
+		req.Header.Set("X-Poller-Key", goodKey)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("%s status = %d", path, resp.StatusCode)
+		}
+	}
+	if gotAuth != "Token token-value" || gotOrg != "bellmore" {
+		t.Fatalf("auth %q, org %q", gotAuth, gotOrg)
 	}
 }
 
