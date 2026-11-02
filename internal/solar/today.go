@@ -105,7 +105,7 @@ func BuildToday(now time.Time, loc *time.Location, window time.Duration, pts map
 
 	t.SunText = sunText(events, today, loc)
 	t.StrSun = jsonString(sunMarks(events, ws, now, loc))
-	t.StrBattEvents = jsonString(battMarks(pts, e, today, ws, now, loc))
+	t.StrBattEvents = jsonString(battMarks(pts, e, events, today, ws, now, loc))
 	return t
 }
 
@@ -241,10 +241,14 @@ func sunText(events []sun.Event, today date.Date, loc *time.Location) *string {
 	return strp(strings.Join(parts, sunSep))
 }
 
+// finalDrop is how far below its max the battery must be, in percentage
+// points, for today's marks to count as final before sunset.
+const finalDrop = 3
+
 // battMarks finds the battery events of yesterday and today and keeps the ones
-// inside the window. Yesterday's events are final. Today's "full" shows only
-// when it is final too.
-func battMarks(pts map[string][]series.Point, e Entities, today date.Date, ws, now time.Time, loc *time.Location) []chartMark {
+// inside the window. Yesterday's events are final. Today's events show only
+// when they are final too (see todayFinal).
+func battMarks(pts map[string][]series.Point, e Entities, events []sun.Event, today date.Date, ws, now time.Time, loc *time.Location) []chartMark {
 	marks := []chartMark{}
 	mid := today.Start(loc)
 	windows := [][2]time.Time{
@@ -253,11 +257,8 @@ func battMarks(pts map[string][]series.Point, e Entities, today date.Date, ws, n
 	}
 	for i, w := range windows {
 		b := dayBattery(pts, e, w[0], w[1])
-		// Today's full mark waits until it is final: the battery reached 100%,
-		// or it has left its max. A battery still charging below 100% has not
-		// reached its day max yet, so "full" would move as it charges.
-		if i == len(windows)-1 && b.Max < 100 && b.Drain == nil {
-			b.Full = nil
+		if i == len(windows)-1 && !todayFinal(b, pts[e.ChargePct], events, today, now, loc) {
+			b = BatteryEvents{}
 		}
 		for _, ev := range []struct {
 			label string
@@ -274,6 +275,37 @@ func battMarks(pts map[string][]series.Point, e Entities, today date.Date, ws, n
 		}
 	}
 	return marks
+}
+
+// todayFinal reports whether today's battery events will not move. They are
+// final when the battery reached 100%. Below 100%, they are final when the
+// battery has left its max for good and either the sun has set or the charge
+// is at least finalDrop points under the max. A battery that dips and
+// recovers has not left its max yet.
+func todayFinal(b BatteryEvents, charge []series.Point, events []sun.Event, today date.Date, now time.Time, loc *time.Location) bool {
+	if b.Max >= 100 {
+		return true
+	}
+	if b.Drain == nil {
+		return false
+	}
+	for _, ev := range events {
+		if ev.Label == "Set" && date.Of(ev.At, loc) == today && now.After(ev.At) {
+			return true
+		}
+	}
+	cur, ok := lastBefore(charge, now)
+	return ok && cur <= b.Max-finalDrop
+}
+
+// lastBefore returns the last reading at or before t.
+func lastBefore(pts []series.Point, t time.Time) (float64, bool) {
+	for i := len(pts) - 1; i >= 0; i-- {
+		if !pts[i].T.After(t) {
+			return pts[i].V, true
+		}
+	}
+	return 0, false
 }
 
 // minutesSince counts whole minutes from start to t.
