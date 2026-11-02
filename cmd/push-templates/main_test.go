@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -70,6 +71,24 @@ func TestBuildSubstitutesKey(t *testing.T) {
 	slices.Sort(names)
 	if !slices.Equal(names, []string{"full.liquid", "settings.yml"}) {
 		t.Errorf("files = %v, want only settings.yml and full.liquid", names)
+	}
+}
+
+// Event names come from a public calendar and land in HTML. The template
+// must escape every column text field that comes from a feed.
+func TestCountdownTemplateEscapesFeedText(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "..", "templates", "countdown", "full.liquid"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := regexp.MustCompile(`\{\{-?\s*col\.(name|source)\s*-?\}\}`)
+	if m := raw.FindString(string(b)); m != "" {
+		t.Errorf("full.liquid prints %q without | escape", m)
+	}
+	for _, f := range []string{"col.name", "col.source"} {
+		if !strings.Contains(string(b), "{{ "+f+" | escape }}") {
+			t.Errorf("full.liquid has no {{ %s | escape }}", f)
+		}
 	}
 }
 
