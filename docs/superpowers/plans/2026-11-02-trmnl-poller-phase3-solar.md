@@ -66,12 +66,10 @@ Each line names what it costs if it is wrong.
   midnight (checked 2026-11-02), so a day's total is its last reading.
   Only car energy needs integration (`wall_connector_power`, kW). Cost: a
   counter that stops resetting would show running totals.
-- **D3. The forecast total is the sum of `energy_production_tomorrow`,
-  `_2`, `_4`, and `_6`.** All six sensors share one friendly name. Over 30
-  days, that sum's median ratio to the next day's actual output was 1.03.
-  `_3` and `_5` alone ran at 1.52 and 1.40, and all six summed ran at
-  3.94. `_3` and `_5` look like duplicate planes. The list lives in config.
-  Cost: one config edit.
+- **D3. No solar forecast (Evan, 2026-11-02: "I wouldn't really trust
+  forecasts. Let's drop solar forecasts.").** This removes the spec's
+  proposed "tomorrow's forecast" metric. The service reads no
+  `energy_production_tomorrow*` sensor.
 - **D4. The anchors moved.** Exact step-hold on the real data gives
   net-zero hours of **11.8** (2026-10-26), **10.8** (2026-10-28), and
   **10.5** (2026-10-31). The spec's 11.5, 10.6, and 10.8 came from
@@ -217,14 +215,14 @@ Each line names what it costs if it is wrong.
 **Interfaces:**
 - Consumes: `series.*`, `date.Date`.
 - Produces:
-  - `type Entities struct { SolarKW, GridKW, LoadKW, BatteryKW, CarKW, ChargePct, ReservePct, SolarKWh, HomeKWh, GridInKWh, GridOutKWh string; Forecast []string }`
+  - `type Entities struct { SolarKW, GridKW, LoadKW, BatteryKW, CarKW, ChargePct, ReservePct, SolarKWh, HomeKWh, GridInKWh, GridOutKWh string }`
     and `var DefaultEntities`, with the sensor names in spec 4.2 and the
     Python config (`bellmore_solar_power`, `bellmore_grid_power`,
     `bellmore_load_power`, `bellmore_battery_power`,
     `wall_connector_power`, `bellmore_percentage_charged`,
     `bellmore_backup_reserve`, `bellmore_solar_generated`,
     `bellmore_home_usage`, `bellmore_grid_imported`,
-    `bellmore_grid_exported`; Forecast per D3).
+    `bellmore_grid_exported`).
   - `func (e Entities) All() []string`
   - `type Day struct` with JSON tags: `label` (`Mon 10/26`), `solar_kwh`,
     `home_kwh`, `grid_in_kwh`, `grid_out_kwh`, `self_powered_pct`,
@@ -233,9 +231,6 @@ Each line names what it costs if it is wrong.
     encodes as `null`.
   - `func Week(today date.Date, now time.Time, loc *time.Location, pts map[string][]series.Point, e Entities, netZeroKW float64) []Day`.
     It returns 8 days: the 7 before today, then today up to `now`.
-  - `func Forecast(pts map[string][]series.Point, e Entities) *float64`
-    (the sum of each forecast entity's latest value; `nil` if any is
-    missing)
   - `func Chart(pts []series.Point, start, end time.Time, step time.Duration) [][2]float64`
     (`[unix ms, time-weighted mean rounded to 0.1]` per window, labeled
     with the window start; empty windows are left out)
@@ -262,7 +257,6 @@ Metric rules (each with its own test):
   - `TestWeekNoSeed`: car points start on day 3. Days 1–2 have
     `car_kwh == nil`.
   - `TestWeekToday`: today stops at `now`, not at midnight.
-  - `TestForecastSum` and `TestForecastMissing`.
   - `TestChartWindows`: the windows and the time-weighted means, using
     the Task 1 numbers.
   - `TestDayJSONNulls`: a `Day` with missing values marshals to `null`.
@@ -321,7 +315,7 @@ Metric rules (each with its own test):
     from the configured entity IDs. These are the names
     `ui/solar_line_chart.erb` reads.
   - `GET /v1/solar/week` returns `days` (`[]solar.Day`),
-    `forecast_tomorrow_kwh`, `week_solar_kwh`, `updated` (`1:05 PM`), and
+    `week_solar_kwh`, `updated` (`1:05 PM`), and
     the bar arrays `str_categories`, `str_solar`, `str_load`, `str_grid`
     (JSON strings; grid = in − out, from the counters).
   - Each solar path caches its InfluxDB result for 60 s and serves a stale
@@ -365,7 +359,7 @@ Metric rules (each with its own test):
   4 grays: the existing 8-day bar chart on top, then a table with one row
   per day. Columns: day, solar, home, grid in/out, self-powered %,
   net-zero h, peak % @ time, reserve time, car kWh. The title bar shows
-  the week's solar kWh, tomorrow's forecast, and `updated`. A `null`
+  the week's solar kWh and `updated`. A `null`
   renders as `—`. `refresh_interval: 60`, `name: Solar Week`.
 - [ ] **Step 3: Fixtures.** Write synthetic `fixture.json` files that
   include at least one `null` of each kind and a DST day. Extend

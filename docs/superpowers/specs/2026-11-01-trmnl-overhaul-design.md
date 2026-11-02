@@ -191,9 +191,8 @@ after he sees the screen):
   and the battery covered.
 - Grid import and export kWh per day (`bellmore_grid_imported`,
   `bellmore_grid_exported`).
-- Tomorrow's solar forecast (`energy_production_tomorrow`). There are six
-  `energy_production_tomorrow*` sensors; the builder finds which is the
-  whole-house total, or sums the planes.
+- ~~Tomorrow's solar forecast.~~ Dropped by Evan, 2026-11-02: "I wouldn't
+  really trust forecasts. Let's drop solar forecasts."
 
 Other sensors available: `bellmore_solar_generated`, `bellmore_home_usage`,
 `bellmore_battery_charged`, `bellmore_battery_discharged`,
