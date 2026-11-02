@@ -54,8 +54,10 @@ type Deps struct {
 	Influx    PointReader
 	Entities  solar.Entities
 	NetZeroKW float64
-	Latitude  *float64
-	Longitude *float64
+	// TodayWindowHours is the length of the Solar Today chart, from 1 to 24.
+	TodayWindowHours int
+	Latitude         *float64
+	Longitude        *float64
 }
 
 type handler struct {

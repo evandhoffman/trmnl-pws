@@ -77,9 +77,9 @@ func TestSolarFixturesMatchServer(t *testing.T) {
 		mod func(map[string][]series.Point)
 	}{
 		{
-			// 9:30 PM on the day the clocks went back, so the window holds
-			// the repeated hour. The solar counter has no readings, so
-			// "generated" is null.
+			// 9:30 PM on the day the clocks went back. The 12-hour window
+			// holds noon, sunset, and two battery events. The solar counter
+			// has no readings, so "generated" and "yesterday" are null.
 			name: "/v1/solar/today",
 			path: "../../templates/solar-today/fixture.json",
 			now:  time.Date(2026, 11, 1, 21, 30, 0, 0, ny),

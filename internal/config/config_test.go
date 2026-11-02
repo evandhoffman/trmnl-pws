@@ -356,6 +356,9 @@ func TestSolarDefaults(t *testing.T) {
 	if cfg.NetZeroKW != 0.05 {
 		t.Fatalf("net_zero_kw = %v", cfg.NetZeroKW)
 	}
+	if cfg.TodayWindowHours != 12 {
+		t.Fatalf("today_window_hours = %v", cfg.TodayWindowHours)
+	}
 	if cfg.Latitude != nil || cfg.Longitude != nil {
 		t.Fatal("coordinates must default to unset")
 	}
@@ -385,6 +388,7 @@ influx:
   bucket: ha/week
 solar:
   net_zero_kw: 0.2
+  today_window_hours: 6
   entities:
     grid_kw: my_grid_power
     car_kw: my_car_power
@@ -395,7 +399,7 @@ longitude: -73.25
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.InfluxOrg != "other" || cfg.InfluxBucket != "ha/week" || cfg.NetZeroKW != 0.2 {
+	if cfg.InfluxOrg != "other" || cfg.InfluxBucket != "ha/week" || cfg.NetZeroKW != 0.2 || cfg.TodayWindowHours != 6 {
 		t.Fatalf("scalars: %+v", cfg)
 	}
 	want := solar.DefaultEntities
@@ -421,6 +425,9 @@ func TestSolarRefusals(t *testing.T) {
 		"unknown entity key":    {body: "solar:\n  entities:\n    bogus_kw: x\n"},
 		"net zero zero":         {body: "solar:\n  net_zero_kw: 0\n"},
 		"net zero negative":     {body: "solar:\n  net_zero_kw: -1\n"},
+		"window zero":           {body: "solar:\n  today_window_hours: 0\n"},
+		"window negative":       {body: "solar:\n  today_window_hours: -3\n"},
+		"window too long":       {body: "solar:\n  today_window_hours: 25\n"},
 		"empty org":             {body: "influx:\n  org: ''\n"},
 		"empty bucket":          {body: "influx:\n  bucket: ''\n"},
 		"latitude only":         {body: "latitude: 41.5\n"},
@@ -457,6 +464,7 @@ func TestSolarErrorsNeverContainInfluxSecrets(t *testing.T) {
 		"bad url":           {env: map[string]string{"INFLUX_URL": "ftp://secret-host.invalid:8086/path"}},
 		"url without token": {env: map[string]string{"INFLUX_URL": baseURL}},
 		"bad entity":        {body: "solar:\n  entities:\n    grid_kw: 'A B'\n", env: map[string]string{"INFLUX_URL": baseURL}},
+		"bad window":        {body: "solar:\n  today_window_hours: 25\n", env: map[string]string{"INFLUX_URL": baseURL}},
 		"bad net zero":      {body: "solar:\n  net_zero_kw: 0\n", env: map[string]string{"INFLUX_URL": baseURL}},
 		"half coordinates":  {body: "latitude: 41\n", env: map[string]string{"INFLUX_URL": baseURL}},
 	}
@@ -502,5 +510,19 @@ func TestEntityDefaultsDoNotAliasPackageState(t *testing.T) {
 	cfg.Entities.GridKW = "mutated"
 	if solar.DefaultEntities.GridKW == "mutated" {
 		t.Fatal("Entities alias solar.DefaultEntities")
+	}
+}
+
+func TestTodayWindowHoursBounds(t *testing.T) {
+	for _, hours := range []string{"1", "12", "24"} {
+		p := writeFile(t, "solar:\n  today_window_hours: "+hours+"\n")
+		if _, err := Load(p, env(map[string]string{"TRMNL_POLLER_KEY": goodKey})); err != nil {
+			t.Errorf("%s hours: %v", hours, err)
+		}
+	}
+	p := writeFile(t, "solar:\n  today_window_hours: 25\n")
+	_, err := Load(p, env(map[string]string{"TRMNL_POLLER_KEY": goodKey}))
+	if err == nil || err.Error() != "solar.today_window_hours must be from 1 to 24" {
+		t.Fatalf("error = %v", err)
 	}
 }

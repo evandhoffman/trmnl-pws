@@ -214,9 +214,13 @@ func TestBuildDepsSolar(t *testing.T) {
 	cfg := testConfig()
 	cfg.Entities = solar.DefaultEntities
 	cfg.NetZeroKW = 0.05
+	cfg.TodayWindowHours = 6
 	d, err := buildDeps(cfg, "v")
 	if err != nil {
 		t.Fatal(err)
+	}
+	if d.TodayWindowHours != 6 {
+		t.Fatalf("TodayWindowHours = %d, want 6", d.TodayWindowHours)
 	}
 	if d.Influx != nil {
 		t.Fatal("no INFLUX_URL must mean no reader")

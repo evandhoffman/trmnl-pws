@@ -66,6 +66,8 @@ influx:
 solar:
   # A grid reading at or below this many kW counts as net zero.
   net_zero_kw: 0.05
+  # Hours the Solar Today chart covers, ending now. Use a whole number from 1 to 24.
+  today_window_hours: 12
   entities:
     solar_kw: bellmore_solar_power
     grid_kw: bellmore_grid_power

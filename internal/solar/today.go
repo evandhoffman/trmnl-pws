@@ -1,7 +1,9 @@
 package solar
 
 import (
+	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/evandhoffman/trmnl-pws/internal/date"
@@ -10,13 +12,14 @@ import (
 )
 
 const (
-	window     = 24 * time.Hour
-	bucketSize = 5 * time.Minute
-	tickEvery  = 3 // wall-clock hours between ticks
+	chartBucket = 10 * time.Minute // chart bucket length
+	peakBucket  = 5 * time.Minute  // header peak bucket length
+	sunSep      = " \u00b7 "       // between sun times: space, middle dot, space
 )
 
 // Today is the Solar Today payload. The chart x-axis counts minutes from the
-// window start, which is 24 hours before now. The Str fields hold JSON text.
+// window start, which is WindowMin minutes before now. The Str fields hold
+// JSON text.
 type Today struct {
 	GeneratedKWh *string  `json:"generated_kwh"`
 	PeakKW       *string  `json:"peak_kw"`
@@ -27,6 +30,13 @@ type Today struct {
 	ReservePct   *float64 `json:"reserve_pct"`
 	DateLabel    string   `json:"date_label"`
 	Updated      string   `json:"updated"`
+
+	// WindowMin is the real minutes from the window start to now.
+	WindowMin       int     `json:"window_min"`
+	YesterdayKWh    *string `json:"yesterday_kwh"`
+	YesterdayPeakKW *string `json:"yesterday_peak_kw"`
+	// SunText lists today's sun times, such as "rise 6:26 · noon 11:38 · set 4:51".
+	SunText *string `json:"sun_text"`
 
 	StrSolar      string `json:"str_solar"`
 	StrHome       string `json:"str_home"`
@@ -46,30 +56,32 @@ type chartMark struct {
 	Time  string `json:"time"`
 }
 
-// bucket is the mean of a series over one 5-minute slot.
+// bucket is the mean of a series over one slot.
 type bucket struct {
 	at  time.Time
 	min int
 	v   float64
 }
 
-// BuildToday builds the Solar Today payload for the 24 hours ending at now.
-// Events holds the sun events of yesterday and today. The payload keeps those
-// inside the window.
-func BuildToday(now time.Time, loc *time.Location, pts map[string][]series.Point, e Entities, events []sun.Event) Today {
+// BuildToday builds the Solar Today payload for the window that ends at now.
+// The window is real time, so a clock change inside it needs no special case.
+// Events holds the sun events of yesterday and today. The chart keeps those
+// inside the window, and the title text keeps today's.
+func BuildToday(now time.Time, loc *time.Location, window time.Duration, pts map[string][]series.Point, e Entities, events []sun.Event) Today {
 	now = now.In(loc)
 	ws := now.Add(-window)
 	today := date.Of(now, loc)
 	mid := today.Start(loc)
+	yesterday := today.AddDays(-1).Start(loc)
 
-	solar := bucketize(pts[e.SolarKW], ws, now)
 	t := Today{
 		DateLabel:     longDate(now),
 		Updated:       longTime(now),
-		StrSolar:      bucketJSON(solar, 1),
-		StrHome:       bucketJSON(bucketize(pts[e.LoadKW], ws, now), 1),
-		StrGrid:       bucketJSON(bucketize(pts[e.GridKW], ws, now), 1),
-		StrBattery:    bucketJSON(bucketize(pts[e.ChargePct], ws, now), 0),
+		WindowMin:     minutesSince(ws, now),
+		StrSolar:      bucketJSON(bucketize(pts[e.SolarKW], ws, now, chartBucket), 1),
+		StrHome:       bucketJSON(bucketize(pts[e.LoadKW], ws, now, chartBucket), 1),
+		StrGrid:       bucketJSON(bucketize(pts[e.GridKW], ws, now, chartBucket), 1),
+		StrBattery:    bucketJSON(bucketize(pts[e.ChargePct], ws, now, chartBucket), 0),
 		StrTicks:      jsonString(tickList(ws, now, loc)),
 		MidnightMin:   minutesSince(ws, mid),
 		MidnightLabel: dayLabel(mid),
@@ -78,7 +90,12 @@ func BuildToday(now time.Time, loc *time.Location, pts map[string][]series.Point
 	if v, ok := counterTotal(pts[e.SolarKWh], mid, now); ok {
 		t.GeneratedKWh = strp(f1(v))
 	}
-	t.PeakKW, t.PeakTime = peak(solar, mid, loc)
+	// The peaks use 5-minute buckets over the whole day, not the chart window.
+	t.PeakKW, t.PeakTime = peak(bucketize(pts[e.SolarKW], mid, now, peakBucket), loc)
+	t.YesterdayPeakKW, _ = peak(bucketize(pts[e.SolarKW], yesterday, mid, peakBucket), loc)
+	if v, ok := counterTotal(pts[e.SolarKWh], yesterday, mid); ok {
+		t.YesterdayKWh = strp(f1(v))
+	}
 	t.NowSolarKW = nowValue(pts[e.SolarKW], now, f1)
 	t.NowHomeKW = nowValue(pts[e.LoadKW], now, f1)
 	t.BatteryPct = nowValue(pts[e.ChargePct], now, f0)
@@ -86,21 +103,23 @@ func BuildToday(now time.Time, loc *time.Location, pts map[string][]series.Point
 		t.ReservePct = &m
 	}
 
+	t.SunText = sunText(events, today, loc)
 	t.StrSun = jsonString(sunMarks(events, ws, now, loc))
 	t.StrBattEvents = jsonString(battMarks(pts, e, today, ws, now, loc))
 	return t
 }
 
-// bucketize returns the mean of each 5-minute slot from ws to now. A slot with
-// no known value is left out.
-func bucketize(pts []series.Point, ws, now time.Time) []bucket {
+// bucketize returns the mean of each slot of the given size from ws to end.
+// Minutes count from ws. The last slot stops at end. A slot with no known
+// value is left out.
+func bucketize(pts []series.Point, ws, end time.Time, size time.Duration) []bucket {
 	var out []bucket
-	for w := ws; w.Before(now); w = w.Add(bucketSize) {
-		end := w.Add(bucketSize)
-		if end.After(now) {
-			end = now
+	for w := ws; w.Before(end); w = w.Add(size) {
+		stop := w.Add(size)
+		if stop.After(end) {
+			stop = end
 		}
-		if m, ok := series.Mean(series.Held(pts, w, end)); ok {
+		if m, ok := series.Mean(series.Held(pts, w, stop)); ok {
 			out = append(out, bucket{at: w, min: minutesSince(ws, w), v: m})
 		}
 	}
@@ -116,14 +135,11 @@ func bucketJSON(b []bucket, decimals int) string {
 	return jsonString(rows)
 }
 
-// peak finds the largest solar bucket since midnight. The first one wins a
-// tie. With no solar, it returns a peak of 0.0 and no time.
-func peak(solar []bucket, mid time.Time, loc *time.Location) (kw, at *string) {
+// peak finds the largest bucket. The first one wins a tie. With no bucket, it
+// returns no peak. With only zeros, it returns a peak of 0.0 and no time.
+func peak(solar []bucket, loc *time.Location) (kw, at *string) {
 	var best *bucket
 	for i := range solar {
-		if solar[i].at.Before(mid) {
-			continue
-		}
 		if best == nil || solar[i].v > best.v {
 			best = &solar[i]
 		}
@@ -148,10 +164,20 @@ func nowValue(pts []series.Point, now time.Time, format func(float64) string) *s
 	return nil
 }
 
+// tickHours returns the hours between ticks: 2 for a window of 12 hours or
+// less, and 3 for a longer one.
+func tickHours(window time.Duration) int {
+	if window <= 12*time.Hour {
+		return 2
+	}
+	return 3
+}
+
 // tickList lists each minute of the window where the local clock reads a
-// multiple of 3 hours. A clock change moves the gap between ticks, not the
-// labels.
+// multiple of the tick spacing. A clock change moves the gap between ticks,
+// not the labels.
 func tickList(ws, now time.Time, loc *time.Location) [][2]any {
+	every := tickHours(now.Sub(ws))
 	ticks := [][2]any{}
 	t := ws.Truncate(time.Minute)
 	if t.Before(ws) {
@@ -159,7 +185,7 @@ func tickList(ws, now time.Time, loc *time.Location) [][2]any {
 	}
 	for ; t.Before(now); t = t.Add(time.Minute) {
 		l := t.In(loc)
-		if l.Minute() == 0 && l.Hour()%tickEvery == 0 {
+		if l.Minute() == 0 && l.Hour()%every == 0 {
 			ticks = append(ticks, [2]any{minutesSince(ws, t), hourLabel(l.Hour())})
 		}
 	}
@@ -193,6 +219,26 @@ func sunMarks(events []sun.Event, ws, now time.Time, loc *time.Location) []chart
 		})
 	}
 	return marks
+}
+
+// sunText lists today's sun events in time order: "rise 6:26 · noon 11:38 ·
+// set 4:51". It returns nil when today has none.
+func sunText(events []sun.Event, today date.Date, loc *time.Location) *string {
+	var todays []sun.Event
+	for _, ev := range events {
+		if date.Of(ev.At, loc) == today {
+			todays = append(todays, ev)
+		}
+	}
+	if len(todays) == 0 {
+		return nil
+	}
+	slices.SortFunc(todays, func(a, b sun.Event) int { return a.At.Compare(b.At) })
+	parts := make([]string, len(todays))
+	for i, ev := range todays {
+		parts[i] = strings.ToLower(ev.Label) + " " + clockTime(ev.At.In(loc))
+	}
+	return strp(strings.Join(parts, sunSep))
 }
 
 // battMarks finds the battery events of yesterday and today and keeps the ones
