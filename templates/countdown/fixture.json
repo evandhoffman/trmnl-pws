@@ -1,0 +1,26 @@
+{
+  "columns": [
+    {
+      "source": "Trip",
+      "name": "Denver",
+      "days": 13,
+      "state": "upcoming",
+      "date": "Sat Nov 14"
+    },
+    {
+      "source": "Binghamton",
+      "name": "Thanksgiving break",
+      "days": 24,
+      "state": "upcoming",
+      "date": "Wed Nov 25"
+    },
+    {
+      "source": "Holiday",
+      "name": "Thanksgiving",
+      "days": 25,
+      "state": "upcoming",
+      "date": "Thu Nov 26"
+    }
+  ],
+  "updated": "12:00 PM"
+}
