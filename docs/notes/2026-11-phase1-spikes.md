@@ -175,10 +175,21 @@ trmnl import-plugin-setting-files <id> -o json --rsh-timeout 30s < body.json
 ```
 
 - Response: `{"data":{"settings_yaml":"<the stored settings.yml>"}}`.
-- A minimal `settings.yml` is enough. The server fills every other key
-  with its default.
-- A body with only `settings.yml` keeps the existing `full.liquid`
-  [observed: `full.liquid` was unchanged after more than 15 settings-only imports].
+- First import into a new plugin [observed]: the import above (6 keys in `settings.yml`)
+  was accepted. In the read-back, every key it did not send had the value
+  the plugin had at creation: `no_screen_padding: 'no'`,
+  `dark_mode: 'no'`, `oauth_enabled: 'false'`, `oauth_pkce_enabled: 'no'`,
+  and empty values for the rest. Those values match the read-back taken
+  before any import. So "default" here means "the value the plugin
+  already had". The test does not show the server resetting a key.
+- Reimport [observed]: the only absent keys tested were `polling_headers`
+  and `full.liquid`. Both kept their stored values: `polling_headers`
+  (see "Import without headers" below), and `full.liquid` (unchanged after
+  more than 15 settings-only imports). Other absent keys were not tested
+  on a reimport.
+- **Guidance for the push tool:** always send `polling_url` (it is
+  committed; the hostname is public) and a non-empty `polling_headers`.
+  The tool then never depends on how the server treats an absent key.
 
 ### Read-back [observed]
 
@@ -276,7 +287,8 @@ Through `update-plugin-setting <id>` (body `{"refresh_interval": N}`):
   the plan allows is raised to the nearest allowed value; this account's
   floor is 15.
 
-Use 15, 30, 60 or 1440 to get exactly what you send on this plan.
+Use 15, 60 or 1440 to get exactly what you send on this plan [observed].
+30 is in the enum but untested [spec].
 
 ### Delete [observed]
 
