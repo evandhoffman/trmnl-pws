@@ -24,7 +24,7 @@ const (
 	// defaultFullTimeout bounds a fetch when there is no last good copy.
 	defaultFullTimeout = 10 * time.Second
 	// defaultStaleTimeout bounds a refetch when a last good copy exists. The HTTP
-	// server's write deadline is 10 s, so a refetch must leave time to answer.
+	// server's write deadline is 30 s, so a refetch must leave time to answer.
 	defaultStaleTimeout = 3 * time.Second
 	// defaultBackoff is how long after a failed fetch the feed does not try again.
 	defaultBackoff = 5 * time.Minute

@@ -1,0 +1,50 @@
+# trmnl-poller configuration. Copy to /etc/trmnl-poller/config.yml, or pass
+# --config <path>. The file is optional: a missing file means every default
+# below. A key you leave out keeps its default. A key you set replaces its
+# default, so "holidays: []" turns every holiday off.
+#
+# Secrets and URLs are NOT in this file. Set them in the environment:
+#   TRMNL_POLLER_KEY   required; at least 32 characters; the value TRMNL
+#                      sends in the X-Poller-Key header
+#   TRIPIT_ICAL_URL    optional; the TripIt iCal feed; no URL, no trips
+#   SCHOOL_ICAL_URL    optional; the school calendar iCal feed; no URL,
+#                      no school events
+
+# Address the HTTP server listens on. The container image and the health
+# check use port 8790.
+listen: ":8790"
+
+# IANA time zone. Every day count uses calendar dates in this zone.
+timezone: America/New_York
+
+# Name shown for the school column.
+school_label: School
+
+# Which school calendar events to keep. Each entry is a regular expression,
+# matched without regard to case. An event that matches an exclude pattern
+# is dropped, even when it matches an include pattern.
+school_rules:
+  include:
+    - '^Residence halls close'
+    - '^No classes \(.*break\)'
+    - '^Classes begin'
+    - '^Last day of classes'
+    - '^Commencement'
+  exclude:
+    - 'winter session'
+
+# Holidays that can fill a column. Allowed keys: new_years, mlk, presidents,
+# good_friday, memorial, juneteenth, independence, labor, thanksgiving,
+# christmas, halloween.
+holidays:
+  - new_years
+  - mlk
+  - presidents
+  - good_friday
+  - memorial
+  - juneteenth
+  - independence
+  - labor
+  - thanksgiving
+  - christmas
+  - halloween
