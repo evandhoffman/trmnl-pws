@@ -127,3 +127,17 @@ func TestString(t *testing.T) {
 		t.Fatal(got)
 	}
 }
+
+func TestStartDST(t *testing.T) { // 2026-11-01 has 25 hours in New York
+	ny, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		t.Fatal(err)
+	}
+	start := d(2026, 11, 1).Start(ny)
+	if got, want := start.Hour(), 0; got != want {
+		t.Fatalf("hour = %d, want %d", got, want)
+	}
+	if got := d(2026, 11, 2).Start(ny).Sub(start); got != 25*time.Hour {
+		t.Fatal(got)
+	}
+}
