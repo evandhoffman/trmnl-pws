@@ -1,0 +1,49 @@
+name: Poller CI
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "cmd/**"
+      - "internal/**"
+      - "templates/**"
+      - "go.mod"
+      - "go.sum"
+      - "poller.Dockerfile"
+      - ".github/workflows/poller.yml"
+  pull_request:
+    paths:
+      - "cmd/**"
+      - "internal/**"
+      - "templates/**"
+      - "go.mod"
+      - "go.sum"
+      - "poller.Dockerfile"
+      - ".github/workflows/poller.yml"
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: gofmt, go mod tidy, vet, staticcheck
+        # Collect the status so that one run reports every problem.
+        run: |
+          status=0
+          test -z "$(gofmt -l .)" || { gofmt -l .; status=1; }
+          go mod tidy -diff || status=$?
+          go vet ./... || status=$?
+          go tool staticcheck ./... || status=$?
+          exit "$status"
+
+      - name: Tests (race detector)
+        run: go test -race ./...
