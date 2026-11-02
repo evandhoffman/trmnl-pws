@@ -327,3 +327,87 @@ func TestTodayGeneratedWithoutRows(t *testing.T) {
 		}
 	}
 }
+
+// yesterdayCycle is a full cycle on 2026-10-29: full at 11:00 (before the
+// window), draining at 19:00, reserve at 23:00.
+func yesterdayCycle(loc *time.Location) []series.Point {
+	return []series.Point{
+		pt(at(loc, 10, 29, 6, 0), 50),
+		pt(at(loc, 10, 29, 11, 0), 100),
+		pt(at(loc, 10, 29, 19, 0), 90),
+		pt(at(loc, 10, 29, 23, 0), 20),
+	}
+}
+
+func eventLabels(ms []marker) []string {
+	out := make([]string, len(ms))
+	for i, m := range ms {
+		out[i] = m.Label + " " + m.Time
+	}
+	return out
+}
+
+func checkEvents(t *testing.T, got []marker, want []marker) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("events = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("event %d = %v, want %v", i, got[i], want[i])
+		}
+	}
+}
+
+// R9: today's "full" mark waits until it is final.
+func TestTodayFullWaitsWhileCharging(t *testing.T) {
+	now, loc := fridayNow(t)
+	charge := append(yesterdayCycle(loc),
+		pt(at(loc, 10, 30, 6, 0), 40),
+		pt(at(loc, 10, 30, 10, 0), 50), // still charging at 16:00, below 100
+	)
+	pts := pointMap{
+		DefaultEntities.ChargePct:  charge,
+		DefaultEntities.ReservePct: {pt(at(loc, 10, 1, 0, 0), 20)},
+	}
+	got := markers(t, BuildToday(now, loc, pts, DefaultEntities, nil).StrBattEvents)
+	checkEvents(t, got, []marker{
+		{"draining", 180, "7:00p"},
+		{"reserve", 420, "11:00p"},
+	})
+	for _, m := range got {
+		if m.Label == "full" {
+			t.Fatalf("a charging battery has a full mark: %v", eventLabels(got))
+		}
+	}
+}
+
+func TestTodayFullShownAt100WhileStillFull(t *testing.T) {
+	now, loc := fridayNow(t)
+	pts := pointMap{
+		DefaultEntities.ChargePct: {
+			pt(at(loc, 10, 30, 6, 0), 60),
+			pt(at(loc, 10, 30, 13, 0), 100), // still 100 at 16:00
+		},
+		DefaultEntities.ReservePct: {pt(at(loc, 10, 1, 0, 0), 20)},
+	}
+	got := markers(t, BuildToday(now, loc, pts, DefaultEntities, nil).StrBattEvents)
+	checkEvents(t, got, []marker{{"full", 1260, "1:00p"}})
+}
+
+func TestTodayFullShownOnceDraining(t *testing.T) {
+	now, loc := fridayNow(t)
+	pts := pointMap{
+		DefaultEntities.ChargePct: {
+			pt(at(loc, 10, 30, 6, 0), 50),
+			pt(at(loc, 10, 30, 12, 0), 95), // day max, below 100
+			pt(at(loc, 10, 30, 14, 0), 80), // left its max for good
+		},
+		DefaultEntities.ReservePct: {pt(at(loc, 10, 1, 0, 0), 20)},
+	}
+	got := markers(t, BuildToday(now, loc, pts, DefaultEntities, nil).StrBattEvents)
+	checkEvents(t, got, []marker{
+		{"full", 1200, "12:00p"},
+		{"draining", 1320, "2:00p"},
+	})
+}

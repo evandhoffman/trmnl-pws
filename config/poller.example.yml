@@ -12,6 +12,9 @@
 #                      no trips
 #   SCHOOL_ICAL_URL    optional; the school calendar iCal feed; an https URL;
 #                      no URL, no school events
+#   INFLUX_URL         optional; the InfluxDB 2 base URL, http or https; no
+#                      URL, no solar screens (the solar paths answer 404)
+#   INFLUX_TOKEN       required when INFLUX_URL is set; a read-only token
 
 # Address the HTTP server listens on. The container image and the health
 # check use port 8790.
@@ -51,3 +54,32 @@ holidays:
   - thanksgiving
   - christmas
   - halloween
+
+# InfluxDB 2 organization and bucket for the solar screens. The field is
+# always "value".
+influx:
+  org: bellmore
+  bucket: home_assistant/autogen
+
+# Solar screens. Each entity ID names a Home Assistant entity in the bucket.
+# An ID may hold only a-z, 0-9 and "_". A key you leave out keeps its default.
+solar:
+  # A grid reading at or below this many kW counts as net zero.
+  net_zero_kw: 0.05
+  entities:
+    solar_kw: bellmore_solar_power
+    grid_kw: bellmore_grid_power
+    load_kw: bellmore_load_power
+    car_kw: wall_connector_power
+    charge_pct: bellmore_percentage_charged
+    reserve_pct: bellmore_backup_reserve
+    solar_kwh: bellmore_solar_generated
+    home_kwh: bellmore_home_usage
+    grid_in_kwh: bellmore_grid_imported
+    grid_out_kwh: bellmore_grid_exported
+
+# Where the sun markers go on the Solar Today chart. Set both or neither.
+# With neither, the chart has no sun markers. Use your own coordinates in
+# decimal degrees on the host. Never commit them.
+# latitude: <your latitude>
+# longitude: <your longitude>

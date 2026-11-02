@@ -20,6 +20,7 @@ import (
 
 	"github.com/evandhoffman/trmnl-pws/internal/config"
 	"github.com/evandhoffman/trmnl-pws/internal/feeds"
+	"github.com/evandhoffman/trmnl-pws/internal/influx"
 	"github.com/evandhoffman/trmnl-pws/internal/server"
 )
 
@@ -30,6 +31,7 @@ const (
 	defaultConfigPath = "/etc/trmnl-poller/config.yml"
 	healthURL         = "http://127.0.0.1:8790/healthz"
 	feedTTL           = time.Hour
+	influxTimeout     = 10 * time.Second
 	shutdownTimeout   = 10 * time.Second
 )
 
@@ -91,7 +93,7 @@ func serve(args []string, stdout io.Writer) int {
 }
 
 // buildDeps turns a checked config into the handler's dependencies. A feed
-// exists only when its URL is set.
+// exists only when its URL is set. The same holds for the InfluxDB reader.
 func buildDeps(cfg config.Config, ver string) (server.Deps, error) {
 	loc, err := time.LoadLocation(cfg.Timezone)
 	if err != nil {
@@ -105,12 +107,19 @@ func buildDeps(cfg config.Config, ver string) (server.Deps, error) {
 		SchoolRules: cfg.SchoolRules,
 		HolidayKeys: slices.Clone(cfg.HolidayKeys),
 		Version:     ver,
+		Entities:    cfg.Entities,
+		NetZeroKW:   cfg.NetZeroKW,
+		Latitude:    cfg.Latitude,
+		Longitude:   cfg.Longitude,
 	}
 	if cfg.TripURL != "" {
 		d.Trips = feeds.New("tripit", cfg.TripURL, feedTTL, time.Now)
 	}
 	if cfg.SchoolURL != "" {
 		d.School = feeds.New("school", cfg.SchoolURL, feedTTL, time.Now)
+	}
+	if cfg.InfluxURL != "" {
+		d.Influx = influx.New(cfg.InfluxURL, cfg.InfluxOrg, cfg.InfluxBucket, cfg.InfluxToken, influxTimeout)
 	}
 	return d, nil
 }

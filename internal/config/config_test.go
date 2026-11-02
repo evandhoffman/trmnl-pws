@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"maps"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/evandhoffman/trmnl-pws/internal/countdown"
 	"github.com/evandhoffman/trmnl-pws/internal/holidays"
+	"github.com/evandhoffman/trmnl-pws/internal/solar"
 )
 
 // goodKey is 32 characters, the shortest key Load accepts.
@@ -337,5 +339,168 @@ func TestExampleFileMatchesDefaults(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("example file differs from the defaults:\n got %+v\nwant %+v", got, want)
+	}
+}
+
+func TestSolarDefaults(t *testing.T) {
+	cfg, err := Load(missingPath(t), env(map[string]string{"TRMNL_POLLER_KEY": goodKey}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.InfluxOrg != "bellmore" || cfg.InfluxBucket != "home_assistant/autogen" {
+		t.Fatalf("influx defaults: %q %q", cfg.InfluxOrg, cfg.InfluxBucket)
+	}
+	if cfg.Entities != solar.DefaultEntities {
+		t.Fatalf("entities: %+v", cfg.Entities)
+	}
+	if cfg.NetZeroKW != 0.05 {
+		t.Fatalf("net_zero_kw = %v", cfg.NetZeroKW)
+	}
+	if cfg.Latitude != nil || cfg.Longitude != nil {
+		t.Fatal("coordinates must default to unset")
+	}
+	if cfg.InfluxURL != "" || cfg.InfluxToken != "" {
+		t.Fatalf("influx env: %q %q", cfg.InfluxURL, cfg.InfluxToken)
+	}
+}
+
+func TestInfluxEnvIsRead(t *testing.T) {
+	cfg, err := Load(missingPath(t), env(map[string]string{
+		"TRMNL_POLLER_KEY": goodKey,
+		"INFLUX_URL":       "http://influxdb2.invalid:8086",
+		"INFLUX_TOKEN":     "tok-123",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.InfluxURL != "http://influxdb2.invalid:8086" || cfg.InfluxToken != "tok-123" {
+		t.Fatalf("influx env: %q %q", cfg.InfluxURL, cfg.InfluxToken)
+	}
+}
+
+func TestSolarFileOverrides(t *testing.T) {
+	p := writeFile(t, `
+influx:
+  org: other
+  bucket: ha/week
+solar:
+  net_zero_kw: 0.2
+  entities:
+    grid_kw: my_grid_power
+    car_kw: my_car_power
+latitude: 41.5
+longitude: -73.25
+`)
+	cfg, err := Load(p, env(map[string]string{"TRMNL_POLLER_KEY": goodKey}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.InfluxOrg != "other" || cfg.InfluxBucket != "ha/week" || cfg.NetZeroKW != 0.2 {
+		t.Fatalf("scalars: %+v", cfg)
+	}
+	want := solar.DefaultEntities
+	want.GridKW, want.CarKW = "my_grid_power", "my_car_power"
+	if cfg.Entities != want {
+		t.Fatalf("entities: %+v", cfg.Entities)
+	}
+	if cfg.Latitude == nil || *cfg.Latitude != 41.5 || cfg.Longitude == nil || *cfg.Longitude != -73.25 {
+		t.Fatalf("coordinates: %v %v", cfg.Latitude, cfg.Longitude)
+	}
+}
+
+func TestSolarRefusals(t *testing.T) {
+	cases := map[string]struct {
+		body string
+		env  map[string]string
+	}{
+		"entity with space":     {body: "solar:\n  entities:\n    grid_kw: 'a b'\n"},
+		"entity with quote":     {body: "solar:\n  entities:\n    solar_kw: 'x\"y'\n"},
+		"entity uppercase":      {body: "solar:\n  entities:\n    load_kw: Load\n"},
+		"entity empty":          {body: "solar:\n  entities:\n    car_kw: ''\n"},
+		"entity with dot":       {body: "solar:\n  entities:\n    charge_pct: sensor.charge\n"},
+		"unknown entity key":    {body: "solar:\n  entities:\n    bogus_kw: x\n"},
+		"net zero zero":         {body: "solar:\n  net_zero_kw: 0\n"},
+		"net zero negative":     {body: "solar:\n  net_zero_kw: -1\n"},
+		"empty org":             {body: "influx:\n  org: ''\n"},
+		"empty bucket":          {body: "influx:\n  bucket: ''\n"},
+		"latitude only":         {body: "latitude: 41.5\n"},
+		"longitude only":        {body: "longitude: -73.2\n"},
+		"latitude out of range": {body: "latitude: 91\nlongitude: 0\n"},
+		"longitude too big":     {body: "latitude: 0\nlongitude: 181\n"},
+		"url without token":     {env: map[string]string{"INFLUX_URL": "http://influxdb2.invalid:8086"}},
+		"url not http":          {env: map[string]string{"INFLUX_URL": "ftp://influxdb2.invalid", "INFLUX_TOKEN": "t"}},
+		"url no host":           {env: map[string]string{"INFLUX_URL": "http://", "INFLUX_TOKEN": "t"}},
+		"url garbage":           {env: map[string]string{"INFLUX_URL": "::not a url::", "INFLUX_TOKEN": "t"}},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			p := missingPath(t)
+			if tc.body != "" {
+				p = writeFile(t, tc.body)
+			}
+			e := map[string]string{"TRMNL_POLLER_KEY": goodKey}
+			maps.Copy(e, tc.env)
+			if _, err := Load(p, env(e)); err == nil {
+				t.Fatal("want an error")
+			}
+		})
+	}
+}
+
+func TestSolarErrorsNeverContainInfluxSecrets(t *testing.T) {
+	const token = "s3cret-influx-token-value"
+	const baseURL = "http://secret-host.invalid:8086/path"
+	cases := map[string]struct {
+		body string
+		env  map[string]string
+	}{
+		"bad url":           {env: map[string]string{"INFLUX_URL": "ftp://secret-host.invalid:8086/path"}},
+		"url without token": {env: map[string]string{"INFLUX_URL": baseURL}},
+		"bad entity":        {body: "solar:\n  entities:\n    grid_kw: 'A B'\n", env: map[string]string{"INFLUX_URL": baseURL}},
+		"bad net zero":      {body: "solar:\n  net_zero_kw: 0\n", env: map[string]string{"INFLUX_URL": baseURL}},
+		"half coordinates":  {body: "latitude: 41\n", env: map[string]string{"INFLUX_URL": baseURL}},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			p := missingPath(t)
+			if tc.body != "" {
+				p = writeFile(t, tc.body)
+			}
+			e := map[string]string{"TRMNL_POLLER_KEY": goodKey, "INFLUX_TOKEN": token}
+			maps.Copy(e, tc.env)
+			if name == "url without token" {
+				delete(e, "INFLUX_TOKEN")
+			}
+			_, err := Load(p, env(e))
+			if err == nil {
+				t.Fatal("want an error")
+			}
+			for _, secret := range []string{token, "secret-host", baseURL} {
+				if strings.Contains(err.Error(), secret) {
+					t.Fatalf("error leaks %q: %v", secret, err)
+				}
+			}
+		})
+	}
+}
+
+func TestTokenWithoutURLIsAccepted(t *testing.T) {
+	cfg, err := Load(missingPath(t), env(map[string]string{"TRMNL_POLLER_KEY": goodKey, "INFLUX_TOKEN": "t"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.InfluxURL != "" {
+		t.Fatal("URL must stay empty")
+	}
+}
+
+func TestEntityDefaultsDoNotAliasPackageState(t *testing.T) {
+	cfg, err := Load(missingPath(t), env(map[string]string{"TRMNL_POLLER_KEY": goodKey}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Entities.GridKW = "mutated"
+	if solar.DefaultEntities.GridKW == "mutated" {
+		t.Fatal("Entities alias solar.DefaultEntities")
 	}
 }
