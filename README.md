@@ -103,7 +103,15 @@ school calendar feed URLs, and the key, come from the environment. The repo hold
 of them. Settings that are safe to read aloud live in an optional YAML file. See
 `config/poller.example.yml`.
 
-The screen template is in `templates/countdown/`. The `templates` job of the `Poller CI` workflow pushes it
+The poller also serves two solar screens: `GET /v1/solar/today` and `GET /v1/solar/week`.
+They need the same `X-Poller-Key` header. They read the home's solar, battery and grid
+data from InfluxDB. Set `INFLUX_URL` and `INFLUX_TOKEN` in the environment. Give the
+token read access to one bucket only. Without `INFLUX_URL`, both paths answer 404.
+Put `latitude` and `longitude` for the sun markers in the host config file only. The repo
+holds no coordinates. `config/poller.example.yml` lists every solar setting.
+
+The screen templates are in `templates/countdown/`, `templates/solar-today/` and
+`templates/solar-week/`. The `templates` job of the `Poller CI` workflow pushes them
 to TRMNL with `cmd/push-templates`, which puts the key in the polling header.
 
 ### Key rules

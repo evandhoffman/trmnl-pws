@@ -64,7 +64,7 @@ influx:
 # Solar screens. Each entity ID names a Home Assistant entity in the bucket.
 # An ID may hold only a-z, 0-9 and "_". A key you leave out keeps its default.
 solar:
-  # A grid reading at or below this many kW counts as net zero.
+  # A grid reading below this many kW (up or down) counts as net zero.
   net_zero_kw: 0.05
   # Hours the Solar Today chart covers, ending now. Use a whole number from 1 to 24.
   today_window_hours: 12
