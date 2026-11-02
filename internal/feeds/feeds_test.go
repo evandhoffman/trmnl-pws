@@ -61,15 +61,25 @@ type server struct {
 	fail atomic.Bool
 	body atomic.Value // []byte
 	ua   atomic.Value // string
+
+	stall   atomic.Bool
+	release chan struct{} // closed at test end to free stalled handlers
 }
 
 func newServer(t *testing.T, body []byte) *server {
 	t.Helper()
-	s := &server{}
+	s := &server{release: make(chan struct{})}
 	s.body.Store(body)
 	s.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		s.hits.Add(1)
 		s.ua.Store(r.UserAgent())
+		if s.stall.Load() {
+			select {
+			case <-s.release:
+			case <-r.Context().Done():
+			}
+			return
+		}
 		if s.fail.Load() {
 			http.Error(w, "boom", http.StatusInternalServerError)
 			return
@@ -77,6 +87,9 @@ func newServer(t *testing.T, body []byte) *server {
 		_, _ = w.Write(s.body.Load().([]byte))
 	}))
 	t.Cleanup(s.Close)
+	// Cleanups run last in, first out: this runs before Close, which waits
+	// for stalled handlers.
+	t.Cleanup(func() { close(s.release) })
 	return s
 }
 
@@ -320,5 +333,185 @@ func TestCallerCannotChangeCache(t *testing.T) {
 	}
 	if second[0].Summary != want {
 		t.Errorf("cache changed: %q, want %q", second[0].Summary, want)
+	}
+}
+
+func TestRedirectErrorsNeverContainToken(t *testing.T) {
+	const token = "secret-token"
+
+	t.Run("malformed Location", func(t *testing.T) {
+		buf := captureLogs(t)
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Location", "http://%zz-"+token)
+			w.WriteHeader(http.StatusFound)
+		}))
+		defer srv.Close()
+		f := New("trips", srv.URL+"/feed/"+token, time.Hour, newClock().Now)
+
+		_, err := f.Events(context.Background(), ny)
+		if err == nil {
+			t.Fatal("want an error")
+		}
+		assertNoSecret(t, err.Error(), buf.String(), token, srv.URL)
+		if !strings.Contains(err.Error(), "redirect refused") {
+			t.Errorf("error %q is not the generic redirect message", err)
+		}
+	})
+
+	t.Run("other host", func(t *testing.T) {
+		buf := captureLogs(t)
+		other := newServer(t, fixture(t, "school.ics"))
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Location", other.URL+"/"+token)
+			w.WriteHeader(http.StatusFound)
+		}))
+		defer srv.Close()
+		f := New("trips", srv.URL+"/feed/"+token, time.Hour, newClock().Now)
+
+		_, err := f.Events(context.Background(), ny)
+		if err == nil {
+			t.Fatal("want an error")
+		}
+		assertNoSecret(t, err.Error(), buf.String(), token, srv.URL)
+		if !strings.Contains(err.Error(), "redirect refused") {
+			t.Errorf("error %q is not the generic redirect message", err)
+		}
+		if other.hits.Load() != 0 {
+			t.Error("the client followed a redirect to another host")
+		}
+	})
+
+	t.Run("same host is followed", func(t *testing.T) {
+		body := fixture(t, "school.ics")
+		mux := http.NewServeMux()
+		mux.HandleFunc("/old", func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, "/new", http.StatusFound)
+		})
+		mux.HandleFunc("/new", func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write(body) })
+		srv := httptest.NewServer(mux)
+		defer srv.Close()
+		f := New("school", srv.URL+"/old", time.Hour, newClock().Now)
+
+		if _, err := f.Events(context.Background(), ny); err != nil {
+			t.Fatal(err)
+		}
+	})
+}
+
+func TestStalledUpstreamServesLastGood(t *testing.T) {
+	srv := newServer(t, fixture(t, "school.ics"))
+	clock := newClock()
+	f := New("school", srv.URL, time.Hour, clock.Now)
+	f.staleTimeout = 100 * time.Millisecond
+
+	first, err := f.Events(context.Background(), ny)
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv.stall.Store(true)
+	clock.Advance(2 * time.Hour)
+
+	start := time.Now()
+	got, err := f.Events(context.Background(), ny)
+	if err != nil {
+		t.Fatalf("want last good events, got %v", err)
+	}
+	if elapsed := time.Since(start); elapsed > 2*time.Second {
+		t.Errorf("stalled refetch took %v, want about the stale timeout", elapsed)
+	}
+	if len(got) != len(first) {
+		t.Errorf("got %d events, want %d", len(got), len(first))
+	}
+}
+
+func TestStalledUpstreamWithNoCopyUsesFullTimeout(t *testing.T) {
+	srv := newServer(t, fixture(t, "school.ics"))
+	srv.stall.Store(true)
+	f := New("school", srv.URL, time.Hour, newClock().Now)
+	f.fullTimeout = 100 * time.Millisecond
+	f.staleTimeout = time.Millisecond // must not apply with no copy
+
+	_, err := f.Events(context.Background(), ny)
+	if err == nil {
+		t.Fatal("want an error")
+	}
+	if srv.hits.Load() != 1 {
+		t.Errorf("upstream hits = %d, want 1", srv.hits.Load())
+	}
+}
+
+func TestBackoffAfterFailureWithLastGood(t *testing.T) {
+	srv := newServer(t, fixture(t, "school.ics"))
+	clock := newClock()
+	f := New("school", srv.URL, time.Hour, clock.Now)
+	f.backoff = 5 * time.Minute
+
+	if _, err := f.Events(context.Background(), ny); err != nil {
+		t.Fatal(err)
+	}
+	srv.fail.Store(true)
+	clock.Advance(2 * time.Hour)
+	for range 2 {
+		if _, err := f.Events(context.Background(), ny); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := srv.hits.Load(); got != 2 {
+		t.Fatalf("hits = %d, want 2 (one fetch, one failed refetch)", got)
+	}
+	clock.Advance(4 * time.Minute)
+	if _, err := f.Events(context.Background(), ny); err != nil {
+		t.Fatal(err)
+	}
+	if got := srv.hits.Load(); got != 2 {
+		t.Fatalf("hits = %d inside the back-off, want 2", got)
+	}
+	clock.Advance(2 * time.Minute)
+	if _, err := f.Events(context.Background(), ny); err != nil {
+		t.Fatal(err)
+	}
+	if got := srv.hits.Load(); got != 3 {
+		t.Errorf("hits = %d after the back-off, want 3", got)
+	}
+}
+
+func TestBackoffAfterFailureWithNoCopy(t *testing.T) {
+	srv := newServer(t, nil)
+	srv.fail.Store(true)
+	clock := newClock()
+	f := New("school", srv.URL, time.Hour, clock.Now)
+
+	_, first := f.Events(context.Background(), ny)
+	if first == nil {
+		t.Fatal("want an error")
+	}
+	clock.Advance(time.Minute)
+	_, second := f.Events(context.Background(), ny)
+	if second == nil || second.Error() != first.Error() {
+		t.Errorf("second error = %v, want the cached %v", second, first)
+	}
+	if got := srv.hits.Load(); got != 1 {
+		t.Fatalf("hits = %d inside the back-off, want 1", got)
+	}
+
+	srv.fail.Store(false)
+	srv.body.Store(fixture(t, "school.ics"))
+	clock.Advance(5 * time.Minute)
+	if _, err := f.Events(context.Background(), ny); err != nil {
+		t.Fatalf("want a retry after the back-off to succeed, got %v", err)
+	}
+	if got := srv.hits.Load(); got != 2 {
+		t.Errorf("hits = %d, want 2", got)
+	}
+}
+
+func TestCallerCancelDoesNotFailFetch(t *testing.T) {
+	srv := newServer(t, fixture(t, "school.ics"))
+	f := New("school", srv.URL, time.Hour, newClock().Now)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := f.Events(ctx, ny); err != nil {
+		t.Fatalf("a hung-up caller failed the shared fetch: %v", err)
 	}
 }
