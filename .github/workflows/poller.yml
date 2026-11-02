@@ -47,3 +47,86 @@ jobs:
 
       - name: Tests (race detector)
         run: go test -race ./...
+
+  image:
+    needs: check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      IMAGE: trmnl-poller:ci
+      CONTAINER: trmnl-poller-smoke
+    steps:
+      - uses: actions/checkout@v7
+
+      # The exact runtime target that publish pushes.
+      - name: Build the image
+        run: |
+          docker build -f poller.Dockerfile --target runtime \
+            --build-arg VERSION=${{ github.sha }} -t "$IMAGE" .
+
+      - name: Smoke test, version
+        run: |
+          out=$(docker run --rm "$IMAGE" --version)
+          echo "$out"
+          test "$out" = "trmnl-poller ${{ github.sha }}"
+
+      - name: Smoke test, the container boots and answers its healthcheck
+        run: |
+          docker run -d --name "$CONTAINER" \
+            -e TRMNL_POLLER_KEY="$(openssl rand -hex 16)" "$IMAGE"
+          # The runtime image has no shell: the healthcheck runs by exec.
+          for i in $(seq 1 15); do
+            if docker exec "$CONTAINER" /usr/local/bin/trmnl-poller healthcheck; then
+              echo "healthy after ${i} tries"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::healthcheck did not pass in 15 tries"
+          exit 1
+
+      - name: Container logs on failure
+        if: failure()
+        run: |
+          docker ps -a
+          docker logs "$CONTAINER" || true
+
+      - name: Remove the container
+        if: always()
+        run: docker rm -f "$CONTAINER" || true
+
+  publish:
+    needs: image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: docker/setup-buildx-action@v4
+
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v7
+        env:
+          DOCKER_BUILD_RECORD_RETENTION_DAYS: 3
+        with:
+          context: .
+          file: poller.Dockerfile
+          target: runtime
+          platforms: linux/amd64
+          push: true
+          build-args: |
+            VERSION=${{ github.sha }}
+          tags: |
+            ghcr.io/evandhoffman/trmnl-poller:${{ github.sha }}
+            ghcr.io/evandhoffman/trmnl-poller:latest
