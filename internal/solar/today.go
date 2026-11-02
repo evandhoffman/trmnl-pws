@@ -196,7 +196,8 @@ func sunMarks(events []sun.Event, ws, now time.Time, loc *time.Location) []chart
 }
 
 // battMarks finds the battery events of yesterday and today and keeps the ones
-// inside the window.
+// inside the window. Yesterday's events are final. Today's "full" shows only
+// when it is final too.
 func battMarks(pts map[string][]series.Point, e Entities, today date.Date, ws, now time.Time, loc *time.Location) []chartMark {
 	marks := []chartMark{}
 	mid := today.Start(loc)
@@ -204,8 +205,14 @@ func battMarks(pts map[string][]series.Point, e Entities, today date.Date, ws, n
 		{today.AddDays(-1).Start(loc), mid},
 		{mid, now},
 	}
-	for _, w := range windows {
+	for i, w := range windows {
 		b := dayBattery(pts, e, w[0], w[1])
+		// Today's full mark waits until it is final: the battery reached 100%,
+		// or it has left its max. A battery still charging below 100% has not
+		// reached its day max yet, so "full" would move as it charges.
+		if i == len(windows)-1 && b.Max < 100 && b.Drain == nil {
+			b.Full = nil
+		}
 		for _, ev := range []struct {
 			label string
 			at    *time.Time
