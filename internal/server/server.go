@@ -22,6 +22,7 @@ import (
 	"github.com/evandhoffman/trmnl-pws/internal/feeds"
 	"github.com/evandhoffman/trmnl-pws/internal/holidays"
 	"github.com/evandhoffman/trmnl-pws/internal/ical"
+	"github.com/evandhoffman/trmnl-pws/internal/solar"
 )
 
 const (
@@ -37,6 +38,8 @@ const (
 
 // Deps holds what the handler needs. Trips and School may be nil. A nil feed
 // is a source that is not configured: it is empty, with no error and no log.
+// A nil Influx turns the solar paths off: they answer 404. Latitude and
+// Longitude are both set or both nil; with none, the chart has no sun marks.
 type Deps struct {
 	Key         string
 	Loc         *time.Location
@@ -47,6 +50,12 @@ type Deps struct {
 	SchoolRules countdown.SchoolRules
 	HolidayKeys []string
 	Version     string
+
+	Influx    PointReader
+	Entities  solar.Entities
+	NetZeroKW float64
+	Latitude  *float64
+	Longitude *float64
 }
 
 type handler struct {
@@ -55,6 +64,7 @@ type handler struct {
 	hasKey          bool
 	mu              sync.Mutex // guards lastSilenceWarn
 	lastSilenceWarn time.Time
+	solar           solarCache
 }
 
 // New returns the handler for the poller.
@@ -94,6 +104,10 @@ func (h *handler) route(w http.ResponseWriter, r *http.Request) {
 		writeText(w, h.d.Version)
 	case "/v1/countdown":
 		h.countdown(w, r)
+	case "/v1/solar/today":
+		h.solarToday(w, r)
+	case "/v1/solar/week":
+		h.solarWeek(w, r)
 	default:
 		http.NotFound(w, r)
 	}
